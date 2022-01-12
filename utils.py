@@ -1059,10 +1059,3 @@ class Shape:
         raise KeyError(f"unknown shape {key}")
 
 shape_ = Shape() # to access functions by keys
-
-
-if __name__ == "__main__":
-    pass
-
-
-    
