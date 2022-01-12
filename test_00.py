@@ -1,6 +1,7 @@
 #!/usr/bin/python3
- 
+
 import numpy as np
+
 from objects import loadElement, Plasma
 from spectrum import Spectrum, QAnalyser
 
