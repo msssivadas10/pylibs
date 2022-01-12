@@ -106,15 +106,12 @@ if __name__ == "__main__":
     q.computeBoltzCoords('saha', 1., 1e+16)
 
     t = q.getBoltzCoords()
-    # t.print()
 
     import matplotlib.pyplot as plt
     plt.style.use('ggplot')
 
     plt.figure()
     for elem in q._elem_idx.keys():
-        # for s in [1, 2]:
         i = np.where(t.c('elem') == elem)[0]
-            # i = i[np.where(t.c('sp')[i] == s)[0]]
         plt.plot(t.c('x')[i], t.c('y')[i], 'o')
     plt.show()
