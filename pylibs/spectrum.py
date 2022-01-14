@@ -13,7 +13,8 @@ from typing import Any
 
 class Spectrum:
     """
-    Object to store and analyse a spectrum. A spectrum stores the wavelength values and the corresponding intensity values as two lists/arrays.
+    Object to store and analyse a spectrum. A spectrum stores the wavelength values and the 
+    corresponding intensity values as two lists/arrays.
 
     Parameters
     ----------
@@ -111,7 +112,8 @@ class Spectrum:
 
     def searchPeaks(self, prominence: float = 0.005) -> Any:
         """
-        Search for peaks in the intensity data. This will fit the line with a gaussian function to get an accurate estimate of the line shape parameters. 
+        Search for peaks in the intensity data. This will fit the line with a gaussian 
+        function to get an accurate estimate of the line shape parameters. 
 
         Parameters
         ----------
@@ -282,7 +284,8 @@ class QAnalyser:
 
     def searchPeaks(self, prominence: float = 0.005, match: bool = False, dist_ub: float = 0.1) -> None:
         """
-        Search for peaks in the spectrum and optionally, match with a set of referenece lines given.
+        Search for peaks in the spectrum and optionally, match with a set of referenece lines 
+        given.
         """
         out = self.spec.searchPeaks(prominence)
         

@@ -8,7 +8,8 @@ import numpy as np
 
 class Species:
     """
-    An object to represent a species/ion of an element. This stores the spectroscopic data for that species.
+    An object to represent a species/ion of an element. This stores the spectroscopic 
+    data for that species.
 
     Parameters
     ----------
@@ -17,9 +18,12 @@ class Species:
     eion: float
         Ionization energy of the species in eV.
     linetab: :class:`Table`, optional
-        Spectroscopic data for lines of this species. This should be a :class:`Table` object with columns `lambda` (wavelength in nm), `Aki` (transition rate), `Ei` and `Ek` (levels), `gi` and `gk` (multiplicity).
+        Spectroscopic data for lines of this species. This should be a :class:`Table` 
+        object with columns `lambda` (wavelength in nm), `Aki` (transition rate), `Ei` 
+        and `Ek` (levels), `gi` and `gk` (multiplicity).
     leveltab: :class:`Table`, optional
-        Energy levels of this species. This should be a :class:`Table` object with columns `E` (level energy) and `g` (multiplicity).
+        Energy levels of this species. This should be a :class:`Table` object with 
+        columns `E` (level energy) and `g` (multiplicity).
     
     """
     __slots__ = '_id', 'eion', 'linetab', 'leveltab', '_last_z', "_spec", '_reflines'
@@ -60,7 +64,9 @@ class Species:
         Parameters
         ----------
         table: :class:`Table`
-            Data as a table. This should be a :class:`Table` object with columns `lambda` (wavelength in nm), `Aki` (transition rate), `Ei` and `Ek` (levels), `gi` and `gk` (multiplicity). If any of these columns is absent, raise :class:`ValueError`.
+            Data as a table. This should be a :class:`Table` object with columns `lambda` 
+            (wavelength in nm), `Aki` (transition rate), `Ei` and `Ek` (levels), `gi` and 
+            `gk` (multiplicity). If any of these columns is absent, raise :class:`ValueError`.
 
         """
         if not isinstance(table, Table):
@@ -78,7 +84,9 @@ class Species:
         Parameters
         ----------
         table: :class:`Table`
-            Data as a table. This should be a :class:`Table` object with columns `E` (level energy) and `g` (multiplicity). If any of these columns is absent, raise :class:`ValueError`.
+            Data as a table. This should be a :class:`Table` object with columns `E` 
+            (level energy) and `g` (multiplicity). If any of these columns is absent, 
+            raise :class:`ValueError`.
 
         """
         if not isinstance(table, Table):
@@ -90,7 +98,8 @@ class Species:
 
     def z(self, T: float) -> float:
         r"""
-        Partition function for this species at the given temperature :math:`T`, given in eV. Partition function is given by the sum
+        Partition function for this species at the given temperature :math:`T`, given 
+        in eV. Partition function is given by the sum
 
         .. math::
             Z(T) = \sum_j g_j \exp \left( -\frac{E_j}{T} \right)
@@ -172,7 +181,8 @@ class Species:
 
 class Element:
     """
-    An object to represent an element. This stores data such as its symbol, atomic number and mass, as well as the spectroscopic data for different ionic species of that element.
+    An object to represent an element. This stores data such as its symbol, atomic number 
+    and mass, as well as the spectroscopic data for different ionic species of that element.
 
     Parameters
     ----------
@@ -213,12 +223,15 @@ class Element:
        
     def _lte_fraction(self, Te: float, Ne: float, ntot: float = 1.) -> float:
         r"""
-        Find the fractional population of each species with respect to the total population, at a specific temperature and electron density, assuming local thermal equilibrium (LTE). This is computed using the Saha LTE equation,
+        Find the fractional population of each species with respect to the total population, 
+        at a specific temperature and electron density, assuming local thermal equilibrium 
+        (LTE). This is computed using the Saha LTE equation,
 
         .. math::
             f_i := \frac{n_{i+1}}{n_i} = 6.009 \times 10^{21} \left[ \frac{T_e^{3/2}}{N_e} \cdot \frac{Z_{i+1}(T_e)}{Z_i(T_e)} \right] e^{-V_i / T_e}
 
-        where, :math:`Z` is the partition function and :math:`V_i` is the ionization energy of the :math:`i`-th species. Population of the neutral species is computed by
+        where, :math:`Z` is the partition function and :math:`V_i` is the ionization energy of 
+        the :math:`i`-th species. Population of the neutral species is computed by
 
         .. math::
             n_0 = \left[ 1 + f_0 (1 + f_1 (\cdots)) \right]^{-1}
@@ -279,7 +292,8 @@ class Element:
         Returns
         -------
         ints: tuple
-            Intensity of each line. This will be a tuple of :class:`Table` objects with two columns: `lambda` and `int`.
+            Intensity of each line. This will be a tuple of :class:`Table` objects with two 
+            columns: `lambda` and `int`.
 
         """
         num = self._lte_fraction(Te, Ne, ntot)
@@ -458,18 +472,22 @@ def saveElement(elem: Element, path: str = '.') -> None:
 
 class Plasma:
     r"""
-    Object representing a plasma in local thermal equilibrium. The plasma contains one or more elements as its components.
+    Object representing a plasma in local thermal equilibrium. The plasma contains one or more 
+    elements as its components.
 
     Parameters
     ----------
     components: dict
-        A python dict mapping the component elements to their population (specified in terms of weight fraction or numbe fraction). 
+        A python dict mapping the component elements to their population (specified in terms 
+        of weight fraction or numbe fraction). 
     Te: float
         Plasma temperature in eV.
     Ne: float
         Electron number density in the plasma, in :math:`{\rm cm}^{-3}`.
     fmt: str, optional
-        Format for specifying the population of an element. Its allowed values are `wt` (default) for weight fraction and `num` for number fraction. In the first case, composition will be concverted to a number fraction.
+        Format for specifying the population of an element. Its allowed values are `wt` 
+        (default) for weight fraction and `num` for number fraction. In the first case, 
+        composition will be concverted to a number fraction.
 
     Examples
     --------
@@ -512,7 +530,8 @@ class Plasma:
 
     def setTemperature(self, value: float) -> None:
         """
-        Set the plasma temperature. After setting the values, :meth:`update` should be called to make the changes in effect. 
+        Set the plasma temperature. After setting the values, :meth:`update` should be called 
+        to make the changes in effect. 
 
         Parameters
         ----------
@@ -525,7 +544,8 @@ class Plasma:
 
     def setElectronDensity(self, value: float) -> None:
         """
-        Set the electron number density. After setting the values, :meth:`update` should be called to make the changes in effect. 
+        Set the electron number density. After setting the values, :meth:`update` should be 
+        called to make the changes in effect. 
 
         Parameters
         ----------
@@ -538,7 +558,8 @@ class Plasma:
 
     def composition(self, ) -> dict:
         """
-        Plasma composition in terms of number fraction. Return value is a :class:`dict` with element symbols as keys and composition vector as values.
+        Plasma composition in terms of number fraction. Return value is a :class:`dict` with 
+        element symbols as keys and composition vector as values.
         """
         return {
                     elem.sym: elem._lte_fraction(self.Te, self.Ne, ntot) for elem, ntot in self.comp.items()
@@ -546,7 +567,8 @@ class Plasma:
 
     def update(self, ) -> None:
         """
-        Update plasma conditions. This should be called after setting the plasma conditions, in order to make the changes effective. 
+        Update plasma conditions. This should be called after setting the plasma conditions, 
+        in order to make the changes effective. 
         """
         if self._updated:
             return
@@ -645,7 +667,8 @@ class ElementSpecifier:
 
     def value(self, ) -> Any:
         """ 
-        Parsed value as a (symbol, species id) pair. For un-specified species, only symbol is returned.
+        Parsed value as a (symbol, species id) pair. For un-specified species, only symbol is 
+        returned.
         """
         if self._id is None:
             return self._sym

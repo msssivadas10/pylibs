@@ -15,13 +15,18 @@ class Table:
     Parameters
     ----------
     data: dict, tuple, array_like
-        Data to make the table. If it is a :class:`dict`, then the keys are used as column labels and values are used as columns. If it is a :class:`tuple`, then it should be a tuple of columns. If it is a :class:`numpy.ndarray`, then columns are used as columns of the table.
+        Data to make the table. If it is a :class:`dict`, then the keys are used as column 
+        labels and values are used as columns. If it is a :class:`tuple`, then it should be a 
+        tuple of columns. If it is a :class:`numpy.ndarray`, then columns are used as columns 
+        of the table.
 
     colnames: list
-        Column labels. If not given, a label of the form `c{index}` is given. It should be given if data is not given.
+        Column labels. If not given, a label of the form `c{index}` is given. It should be 
+        given if data is not given.
 
     coltypes: list
-        Data type of the columns. If not given, it is infered from the data. It should be given if data is not given.
+        Data type of the columns. If not given, it is infered from the data. It should be 
+        given if data is not given.
 
     Raises
     ------
@@ -47,7 +52,8 @@ class Table:
     >>> x
     <Table shape = [3, 2], columns = [x: float, y: float]>
 
-    All these will create the same table. If generating from a list or numpy array, it is recommended to specify the column types.
+    All these will create the same table. If generating from a list or numpy array, it is 
+    recommended to specify the column types.
 
     """
     __slots__ = 'colnames', 'coltypes', 'data', 'shape'
@@ -683,12 +689,14 @@ class Table:
             Column name. This column should be of type :class:`int` or :class:`str`.
 
         levels: array_like
-            Levels to split the table. If a value is not present in the column, :class:`TableError` is raised.
+            Levels to split the table. If a value is not present in the column, 
+            :class:`TableError` is raised.
 
         Returns
         -------
         tables: tuple
-            Tables created by splitting this table. Number tables will be same as the size of levels list. 
+            Tables created by splitting this table. Number tables will be same as the size of 
+            levels list. 
 
         Examples
         --------
@@ -852,7 +860,8 @@ class Parser:
         List of column indices to ignore.
 
     ignore_conds: dict, optional
-        A dictionary of conditions to ignore a row. Its keys are the column indices and values are the conditions to check.
+        A dictionary of conditions to ignore a row. Its keys are the column indices and 
+        values are the conditions to check.
 
     max_cols: int
         Maximum number of columns to read.
@@ -916,7 +925,8 @@ class Parser:
 
 def readtxt(file: str, delim: str = ',', comment: str = '#', parser: Parser = Parser(), transpose: bool = False) -> list:
     """
-    A general function to read data from a text file. The file contain the data in a tabular format, and each entry in a row is seperated by the delimiter charecter.
+    A general function to read data from a text file. The file contain the data in a tabular 
+    format, and each entry in a row is seperated by the delimiter charecter.
 
     Parameters
     ----------
@@ -930,10 +940,12 @@ def readtxt(file: str, delim: str = ',', comment: str = '#', parser: Parser = Pa
         Charecter used for commenting (default is `#`).
 
     parser: :class:`Parser`, optional
-        Parser object used to parse a line from the file. If not given, a default parser is used.
+        Parser object used to parse a line from the file. If not given, a default parser is 
+        used.
 
     transpose: bool, optional
-        If true (default is false), transpose the table, so that the return value is a list of columns. 
+        If true (default is false), transpose the table, so that the return value is a list 
+        of columns. 
 
     Returns
     -------
@@ -978,12 +990,16 @@ def readtxt(file: str, delim: str = ',', comment: str = '#', parser: Parser = Pa
 
 class Shape:
     """
-    A library of line shape functions. All the shape functions here accept four arguments: `x` is the point to evaluate the function, with three parameters `x0` the central wavelength, `y0` the line height and `w` the line width (FWHM). Availabel functions are 
+    A library of line shape functions. All the shape functions here accept four arguments: 
+    `x` is the point to evaluate the function, with three parameters `x0` the central 
+    wavelength, `y0` the line height and `w` the line width (FWHM). Availabel functions are 
 
     1. `gaussian`: general Gaussian function.
     2. `lorentzian`: general Lorentzian function.
 
-    One can call the functions as `Shape.func` or use the `shape_` object with the function key as `shape_[key]`. For example, both `Shape.gaussian` and `shape_['gaussian']` call the Gaussian function.
+    One can call the functions as `Shape.func` or use the `shape_` object with the function 
+    key as `shape_[key]`. For example, both `Shape.gaussian` and `shape_['gaussian']` call 
+    the Gaussian function.
 
     """
     available = "gaussian", "lorentzian", 
@@ -995,7 +1011,8 @@ class Shape:
         .. math::
             y = y_0 \exp \left[ -4 \ln 2 \left( \frac{x - x_0}{w} \right)^2 \right]
 
-        where :math:`y_0` is the intensity, :math:`x_0` the center value and :math:`w` the width.
+        where :math:`y_0` is the intensity, :math:`x_0` the center value and :math:`w` the 
+        width.
 
         Parameters
         ----------
@@ -1026,7 +1043,8 @@ class Shape:
         .. math::
             y = y_0 \left[ 1 + 4 \left( \frac{x - x_0}{w} \right)^2 \right]^{-1}
 
-        where :math:`y_0` is the intensity, :math:`x_0` the center value and :math:`w` the width.
+        where :math:`y_0` is the intensity, :math:`x_0` the center value and :math:`w` the 
+        width.
 
         Parameters
         ----------
