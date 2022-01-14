@@ -1,7 +1,7 @@
 import numpy as np
-from spectrum import Spectrum, QAnalyser
-from objects import Species, Element, Plasma, loadElement
-from utils import Table
+from pylibs.spectrum import Spectrum, QAnalyser
+from pylibs.objects import Species, Element, Plasma, loadElement
+from pylibs.utils import Table 
 
 # =================================================================================
 # Test functions
@@ -32,7 +32,7 @@ def _load_species(lines_file: str, levels_file: list, eion: list) -> list:
     3. Units of energy should be same in all files (eV is the preffered unit), for all elements.
 
     """
-    from utils import Parser, readtxt
+    from pylibs.utils import Parser, readtxt
 
     nspec = len(levels_file)
     if len(eion) != nspec:

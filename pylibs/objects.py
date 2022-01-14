@@ -1,6 +1,9 @@
 #!/usr/bin/python3
+try:
+    from utils import Table, shape_
+except Exception:
+    from .utils import Table, Shape
 from typing import Any
-from utils import Table, shape_
 import numpy as np
 
 class Species:
