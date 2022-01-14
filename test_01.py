@@ -1,3 +1,6 @@
+#!/usr/bin/python3
+
+# code for testings
 import numpy as np
 from pylibs.spectrum import Spectrum, QAnalyser
 from pylibs.objects import Species, Element, Plasma, loadElement
