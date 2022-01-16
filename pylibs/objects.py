@@ -1,8 +1,5 @@
 #!/usr/bin/python3
-try:
-    from utils import Table, shape_
-except Exception:
-    from .utils import Table, shape_
+from .utils import Table, shape_
 from typing import Any
 import numpy as np
 

@@ -1,11 +1,7 @@
 #!/usr/bin/python3
 import numpy as np
-try:
-    from objects import Element, ElementSpecifier
-    from utils import Table, shape_
-except Exception:
-    from .objects import Element, ElementSpecifier
-    from .utils import Table, shape_
+from .objects import Element, ElementSpecifier
+from .utils import Table, shape_
 from scipy.signal import find_peaks
 from scipy.optimize import curve_fit
 from scipy.spatial import KDTree
