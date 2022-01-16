@@ -3,7 +3,8 @@
 PyLIBS
 ======
 
-`pylibs` is a set of Python tools for LIBS (Laser Indused Breakdown Spectroscopy). It has tools for generating and analysing (**under construction**) the plasma spectrum.
+`pylibs` is a set of Python tools for LIBS (Laser Indused Breakdown Spectroscopy). It has 
+tools for generating and analysing (**under construction**) the plasma spectrum.
 
 """
 
