@@ -134,7 +134,9 @@ class Spectrum:
 
 
 class BoltzError(Exception):
-    """ Exception used by Boltzmann plane objects """
+    """ 
+    Exception used by Boltzmann plane objects 
+    """
     ...
 
 
@@ -142,10 +144,16 @@ class BoltzPlane:
     """
     A object representing the Boltzmann plane. 
     """
-    __slots__ = 'elems', 'data', 'fmt', '_elem_idx', 'Te', 'Ne'
+    __slots__ = 'elems', 'data', 'fmt', '_elem_idx', 'Te', 'Ne', "_qa"
 
-    def __init__(self, elems: list, tab: Table, Te: float, Ne: float, fmt: str = 'boltz', tab_fmt: str = 'lines') -> None:
-        if not min(map(lambda _x: isinstance(_x, Table), elems)):
+    def __init__(self, elems: list, tab: Table, Te: float = ..., Ne: float = ..., fmt: str = 'boltz', tab_fmt: str = 'lines') -> None:
+        self.Te, self.Ne = Te, Ne
+
+        if not fmt in ['boltz', 'saha']:
+            raise ValueError(f"invalid format `{fmt}`")
+        self.fmt = fmt
+
+        if not min(map(lambda _x: isinstance(_x, Element), elems)):
             raise BoltzError("`elems` should be an iterable of 'Element' objects")
         self.elems = elems
 
@@ -156,43 +164,82 @@ class BoltzPlane:
         if tab_fmt == 'lines':
             if not tab.has_columns(['elem', 'sp', 'lambda', 'Aki', 'Ek', 'gk', 'int']):
                 raise BoltzError("given table has not all lines data")
-            # compute x and y
+            x, y = self._boltz_coords(tab)
+            self.data = tab[['elem', 'sp'], ]
+            self.data.add_column(x, 'x', float)
+            self.data.add_column(y, 'y', float)
         elif tab_fmt == 'points':
             if not tab.has_columns(['elem', 'sp', 'x', 'y']):
                 raise BoltzError("given table has not all points data")
             self.data = tab
         else:
             raise ValueError(f"invalid value for `{tab_fmt}` table format")
-        
-        if not fmt in ['boltz', 'saha']:
-            raise ValueError(f"invalid format `{fmt}`")
 
-        self.Te, self.Ne = Te, Ne
+        self._qa         = None # setted by a QAnalyser object        
 
-    def _boltz_coords(self, _int: Any, _aki: Any, _ek: Any, _gk: Any, ) -> tuple:
-        """ Compute coordinates on the Boltzmann plane """
-        x = _ek
-        y = np.log(_int / _gk / _aki)
+    def _boltz_coords(self, tab: Table) -> tuple:
+        """ 
+        Compute coordinates on the Boltzmann plane 
+        """
+        x = tab.c('Ek')
+        y = np.log(tab.c('int') / tab.c('gk') / tab.c('Aki'))
 
         if self.fmt == 'boltz':
             return x, y
 
+        if self.Te is ... or self.Ne is ... :
+            raise BoltzError("Te and Ne should be given for saha-boltzmann plane")
+
         const = -np.log(6.009e+21 * self.Te**1.5 / self.Ne)
 
         def _xcorr(sym: str, _id: int):
-            return 0 if _id == 1 else self.comp[self._elem_idx[sym]].species[_id-1].eion
+            return 0 if _id == 1 else self.elems[self._elem_idx[sym]].species[_id-1].eion
 
         def _ycorr(_id: int):
             return 0 if _id == 1 else const
         
-        x = x + np.array(list(map(_xcorr, self.data.c('elem'), self.data.c('sp'))))
-        y = y + np.array(list(map(_ycorr, self.data.c('sp'))))
+        x = x + np.array(list(map(_xcorr, tab.c('elem'), tab.c('sp'))))
+        y = y + np.array(list(map(_ycorr, tab.c('sp'))))
 
         return x, y
 
-    def _boltz_coords_table(self, tab: Table) -> tuple:
-        """ Compute coordinates on the Boltzmann plane """
-        return self._boltz_coords(tab.c('int'), tab.c('Aki'), tab.c('Ek'), tab.c('gk'))
+    def _f(self, x: Any, islope: float, const: float) -> Any:
+        """
+        Line fitting the points of a species/element. It has the form `y ~ const - x / islope`,
+        where `islope` is the negative inverse of the slope (i.e., the temperature in eV) and
+        `const` is the intercept. This linear form is derived from Saha-Boltzmann equation.
+
+        Parameters
+        ----------
+        x: array_like
+            Independent variable or X coordinates of the points (energy level).
+        islope: float
+            Slope parameter for the line.
+        const: float
+            Y intercept for the line.
+
+        Returns
+        -------
+        y: array_like
+            Y coordinate of the points.
+
+        """
+        return const - x / islope
+
+    def _fit_line_sp(self, elem: str, sp: int) -> tuple:
+        """
+        Fit the points to a straight line.
+        """
+        pts  = self.getPoints(elem, sp)
+
+        popt, pcov = curve_fit(self._f, pts.c('x'), pts.c('y'), )
+        return popt, np.sqrt(np.diag(pcov))
+
+    def _do_fitting(self, ) -> None:
+        """
+        Fit lines to points on the plane.
+        """
+        return
 
     def setTe(self, val: float) -> None:
         """
@@ -208,6 +255,38 @@ class BoltzPlane:
         self.Ne = val
         return
 
+    def estimateTe(self) -> None:
+        """
+        Estimate temperature from boltzmann plane points.
+        """
+        pass
+
+    def getPoints(self, elem: str = ..., sp: int = ...) -> Table:
+        """
+        Get the points in the Boltzmann plane. If given, return those for the specied species.
+
+        Parameters
+        ----------
+        elem: str, optional
+            Symbol of the element. If given only give values correspond to this element.
+        sp: int, optional
+            Species index. If given only give values correspond to this species.
+
+        Returns
+        -------
+        pts: :class:`Table`
+            Points on the Boltzmann plane. This table will have four columns - `x`, `y`, 'elem` and `sp` for x and y coordinates, element symbol and species index respectively. 
+
+        """
+        out = self.data
+        i = np.arange(out.shape[0])
+        if elem is not ... :
+            i = i[np.where(out.c('elem') == elem.capitalize())[0]]
+        if sp is not ... :
+            i = i[np.where(out.c('sp')[i] == sp)[0]]
+        i = list(i)
+        return out.subtable(i)
+
 
 class AnalyserError(Exception):
     """ Exception used by :class:`QAnalyser` objects """
@@ -218,24 +297,25 @@ class QAnalyser:
     """
     An object to analyse the (LIBS) spectrum and get information.
     """
-    __slots__ = ('spec', 'comp', '_elem_idx', '_lines', '_has_reflines', 
-                 '_has_matched', '_found_lines', 'Ne', 'Te', '_bfmt')
+    __slots__ = (
+                    'spec', 'comp', '_elem_idx', '_lines', '_has_reflines', 
+                    '_has_matched', '_found_lines', 'Ne', 'Te', '_boltz', 
+                )
 
     def __init__(self, spec: Spectrum, comp: list = []) -> None:
         self.spec      = spec
 
         self._elem_idx = {}     # mapping the element index to symbol
         self._lines    = None   # lines in this spectrum (and their data)
+        self._boltz    = None   # computed boltzmann plane
         self.Ne        = None   # (estimated) value of electron temperature
         self.Te        = None   # (estimated) value of electron density
-        self._bfmt     = None   # boltzmann plane format
 
         # Flags : 
         self._has_reflines = False  # has set reference lines
         self._has_matched  = False  # has matched with reference lines
         self._found_lines  = False  # lines are found from the spectrum
         
-
         self.setPlasmaComponents(comp)
 
     def setPlasmaComponents(self, comp: list):
@@ -335,113 +415,63 @@ class QAnalyser:
         self._has_matched = True
         return
 
-    def _boltz_coords(self, fmt: str = 'boltz', Te: float = ..., Ne: float = ...) -> tuple:
-        """ Boltzmann plane coordinates (internal) """
-        
-        x = self._lines.c('Ek')
-        y = np.log(self._lines.c('int') / self._lines.c('gk') / self._lines.c('Aki'))
-
-        if fmt == 'boltz':
-            return x, y
-
-        if Te is Ellipsis or Ne is Ellipsis:
-            raise AnalyserError("both Te and Ne should be given if fmt is`saha`")
-
-        const = -np.log(6.009e+21 * Te**1.5 / Ne)
-
-        def _xcorr(sym: str, _id: int):
-            if _id == 1:
-                return 0.
-            return self.comp[self._elem_idx[sym]].species[_id-1].eion
-
-        def _ycorr(sym: str, _id: int):
-            if _id == 1:
-                return 0.
-            return const
-        
-        x = x + np.array(list(map(_xcorr, self._lines.c('elem'), self._lines.c('sp'))))
-        y = y + np.array(list(map(_ycorr, self._lines.c('elem'), self._lines.c('sp'))))
-
-        return x, y
-
-    def computeBoltzCoords(self, fmt: str = 'boltz', Te: float = ..., Ne: float = ...) -> None:
+    def makeBoltzPlane(self, Te: float = ..., Ne: float = ..., fmt: str = 'boltz') -> None:
         """
-        Compute the Boltzmann plane coordinates from the matched lines data.
-        """
-        if not self._has_matched:
-            raise AnalyserError("to compute Boltzmann plane coordinates, lines have to found and matched")
-        if fmt not in ('boltz', 'saha'):
-            raise ValueError(f"unknown format `{fmt}` for Boltzmann plane")
-
-        x, y = self._boltz_coords(fmt, Te, Ne)
-
-        self._bfmt = fmt
-
-        if self._lines.has_columns(['x', 'y']):
-            # replace is already computed the coordinates
-            self._lines.replace_column('x', x)
-            self._lines.replace_column('y', y)
-            return
-        
-        # add if not computed 
-        self._lines.add_column(x, 'x', float)
-        self._lines.add_column(y, 'y', float)
-        return
-
-    def getBoltzCoords(self, elem: str = ..., sp: int = ...) -> Table:
-        """
-        Get the last computed Boltzmann plane coordinates.
+        Prepare the Boltzmann plane for this spectrum.
 
         Parameters
         ----------
+        Te: float, optional
+            Temperature in eV (could be a guess value). Not needed if specifed in object.
+        Ne: float, optional
+            Electron density in :math:`{\rm cm}^{-3}`. Not needed if specifed in object.
+        fmt: str, optional
+            Boltzmann plane format. `boltz` for normal Boltzmann plane and `saha` for Saha-Boltzmann plane.
+
+        """
+        if fmt == 'saha':
+            if Ne is ...:
+                if  self.Ne is None:
+                    raise AnalyserError("Ne should be given if not set")
+                Ne = self.Ne
+            if Te is ...:
+                if self.Te is None:
+                    raise AnalyserError("Te should be given if not set")
+                self.Te = Te
+        self._boltz = BoltzPlane(self.comp, self._lines, Te, Ne, fmt, 'lines')
+        self._boltz._qa = self # set a reference to the analyser object
+        return
+
+    def getBoltzPlane(self, ) -> BoltzPlane:
+        """
+        Get the computed Boltzmann plane.
+        """
+        if self._boltz is None:
+            raise AnalyserError("no boltzmann plane computed")
+        return self._boltz
+
+    def setNe(self, value: float, action: str = 'set', ref: float = ..., elem: str = ...) -> None:
+        """
+        Compute or set the value of electron density.
+
+        Parameters
+        ----------
+        value: float
+            If the action is `set`, it should be the value of :math:`N_e` to set, given in :math:`{\rm cm}^{-3}`. If the action is to `compute`, then it should be the value of stark width (FWHM) appropriate unit.
+        action: str, optional
+            What to do - `set` to set the given value or `compute` to estimate from the given information.
+        ref: float, optional
+            Reference wavelength, whose stark width is used to compute the value.
         elem: str, optional
-            If given, get the coordinates for that element.
-        sp: int, optional
-            If given, along with the element, get the coordinates for that species.
-
-        Returns
-        -------
-        tab: :class:`Table`
-            Boltzmann plane coordinates as a table.
+            Element to which the reference wavelength correspond to. It should be given in a specific format, i.e., the element symbol and the species number seperated by `-` (eg., for copper-I, one can use `Cu-1`, provided there is an :class:`Element` object with symbol `Cu`). 
 
         """
-        if not self._lines.has_columns(['x', 'y']):
-            raise AnalyserError("Boltzmann coordinates not computed yet.")
-        tab = Table(
-                        {
-                            'elem': self._lines.c('elem'),
-                            'sp'  : self._lines.c('sp'),
-                            'x'   : self._lines.c('x'),
-                            'y'   : self._lines.c('y'),
-                        },
-                        coltypes = [str, int, float, float]
-                    )
-        if elem is not Ellipsis:
-            i = np.where(tab.c('elem') == elem)[0]
-            if sp is not Ellipsis:
-                i = i[np.where(tab.c('sp')[i] == sp)[0]]
-            return tab.subtable(i)
-        return tab
-
-    def estimateNe(self, *args, **kwargs) -> None:
-        """
-        Estimate the electron density in the plasma assuming LTE.  
-        """
-        return NotImplemented
-        
-    def estimateTe(self, use: str = ...) -> None:
-        """
-        Estimate the temperature from Boltzmann plots
-        """
-        btab = self.getBoltzCoords()
-
-        if use is Ellipsis:
-            use = ElementSpecifier(use)
-            if use.is_element():
-                raise AnalyserError("`use` should indicate a species")
-            elem, sp = use.value()
-
-            i    = np.where((btab.c('elem') == elem) & (btab.c('sp') == sp))[0]
-            btab = btab.subtable(i)
-
-        pass 
+        if action == 'set':
+            if not isinstance(value, (float, int)):
+                raise TypeError("value should be a number")
+            self.Ne = value
+            return
+        elif action == 'compute':
+            # compute Ne from a refernce line
+            return NotImplemented
+        raise ValueError(f"invalid action `{action}`")

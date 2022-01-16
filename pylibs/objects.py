@@ -6,6 +6,10 @@ except Exception:
 from typing import Any
 import numpy as np
 
+# =====================================
+# Main objects
+# ===================================== 
+
 class Species:
     """
     An object to represent a species/ion of an element. This stores the spectroscopic 
@@ -177,7 +181,6 @@ class Species:
         if not len(self._reflines):
             return Table()
         return self.linetab.subtable(self._reflines)
-
 
 class Element:
     """
@@ -367,109 +370,6 @@ class Element:
             out = out + t
         return out
 
-def loadElement(fname: str) -> Element:
-    """ 
-    Create an element by loading data from a JSON file. 
-
-    Parameters
-    ----------
-    fname: str
-        Filename (or path) for the data file.
-
-    Returns
-    -------
-    elem: :class:`Element`
-        Element object.
-
-    Examples
-    --------
-    TODO
-
-    """
-    import json
-    
-    def _table_from_dict(_dict: dict):
-
-        def _type(key: str):
-            _map = {'float': float, 'int': int, 'str': str}
-            return _map[key]
-
-        return Table(_dict['data'], _dict['cols'], list(map(_type, _dict['types'])))
-
-    def _create_species_from_dict(_dict: dict):
-        s = Species(_dict['id'], _dict['Eion'], )
-        s.set_linesTable(_table_from_dict(_dict['lines']))
-        s.set_levelsTable(_table_from_dict(_dict['levels']))
-        return s
-
-    data = json.load(open(fname, 'r'))
-    
-    # create element object
-    elem = Element(
-                    z       = data['z'], 
-                    mass    = data['mass'], 
-                    sym     = data['symbol'],
-                    species = list(map(_create_species_from_dict, data['species'])),
-                )
-    return elem
-
-def saveElement(elem: Element, path: str = '.') -> None:
-    """
-    Save the data of the given element in JSON format. 
-    
-    Parameters
-    ----------
-    elem: :class:`Element`:
-        Element whose data is to save.
-    path: str, optional
-        Path to an existing directory, to where the file saved. If it not exist, raise error. 
-
-    """
-    import json, os, re
-
-    def _table_to_dict(tab: Table):
-
-        def _typename(_t: type):
-            return re.search(r"(?<=\')\w+", repr(_t)).group(0)
-
-        def _build_value(val: Any, _t: type):
-            return _t(val)
-
-        def _build_row(row: tuple):
-            return list(map(_build_value, row, tab.coltypes))
-
-        return {
-                    'cols' : tab.colnames,
-                    'types': list(map(_typename, tab.coltypes)),
-                    'data' : list(map(_build_row, list(zip(*tab.data))))
-               }
-
-    def _species_to_dict(sp: Species):
-        return {
-                    'id'    : sp._id,
-                    'Eion'  : sp.eion,
-                    'lines' : _table_to_dict(sp.linetab),
-                    'levels': _table_to_dict(sp.leveltab),
-               }
-
-    def _element_to_dict(elem: Element):
-        return {
-                    'symbol'  : elem.sym,
-                    'z'       : elem.z,
-                    'mass'    : elem.mass,
-                    'nspecies': elem.nspecies,
-                    'species' : list(map(lambda _s: _s._to_dict(), elem.species)),
-               }
-    
-    file = os.path.abspath(path)
-    if not os.path.isdir(file):
-        raise NotADirectoryError("the given path is not a directory or does not exist.")
-    file = os.path.join(file, f'{elem.sym.lower()}.json')
-
-    json.dump(_element_to_dict(elem), open(file, 'w'), indent = 4)
-    return
-
-
 class Plasma:
     r"""
     Object representing a plasma in local thermal equilibrium. The plasma contains one or more 
@@ -634,7 +534,6 @@ class Plasma:
             return out.subtable(rows, ...)
         return out
 
-
 class ElementSpecifier:
     """
     A value used to specify a species of an element
@@ -656,9 +555,11 @@ class ElementSpecifier:
                 return x[0].capitalize(), None
             if len(x) == 2:
                 return x[0].capitalize(), int(x[1])
-        elif isinstance(es, tuple):
+        elif isinstance(es, (tuple, list)):
             if len(es) == 2:
                 return str(es[0]).capitalize(), int(es[1])
+        elif isinstance(es, ElementSpecifier):
+            return es._sym, es._id 
         raise ValueError("invalid element specifier")
 
     def __repr__(self) -> str:
@@ -685,3 +586,134 @@ class ElementSpecifier:
     def is_element(self, ) -> bool:
         """ Return true if an element, else (if species) false """
         return (self._id is None)
+
+
+# =====================================
+# JSON Endoders
+# ===================================== 
+
+class ElementEncoder(Table.JSONEncoder):
+    """
+    Custom json encoder for Element and Species objects.
+    """
+    def default(self, o: Any) -> Any:
+        if isinstance(o, Element):
+            return {
+                'symbol'  : o.sym,
+                'z'       : o.z,
+                'mass'    : o.mass,
+                'nspecies': o.nspecies,
+                'species' : o.species,
+            }
+        elif isinstance(o, Species):
+            return {
+                        'id'    : o._id,
+                        'Eion'  : o.eion,
+                        'lines' : o.linetab,
+                        'levels': o.leveltab,
+                    }
+        return super().default(o)
+
+
+def loadElement(fname: str) -> Element:
+    """ 
+    Create an element by loading data from a JSON file. 
+
+    Parameters
+    ----------
+    fname: str
+        Filename (or path) for the data file.
+
+    Returns
+    -------
+    elem: :class:`Element`
+        Element object.
+
+    Examples
+    --------
+    TODO
+
+    """
+    import json
+    
+    def _table_from_dict(_dict: dict):
+
+        def _type(key: str):
+            _map = {'float': float, 'int': int, 'str': str}
+            return _map[key]
+
+        return Table(_dict['data'], _dict['cols'], list(map(_type, _dict['types'])))
+
+    def _create_species_from_dict(_dict: dict):
+        s = Species(_dict['id'], _dict['Eion'], )
+        s.set_linesTable(_table_from_dict(_dict['lines']))
+        s.set_levelsTable(_table_from_dict(_dict['levels']))
+        return s
+
+    data = json.load(open(fname, 'r'))
+    
+    # create element object
+    elem = Element(
+                    z       = data['z'], 
+                    mass    = data['mass'], 
+                    sym     = data['symbol'],
+                    species = list(map(_create_species_from_dict, data['species'])),
+                )
+    return elem
+
+def saveElement(elem: Element, path: str = '.') -> None:
+    """
+    Save the data of the given element in JSON format. 
+    
+    Parameters
+    ----------
+    elem: :class:`Element`:
+        Element whose data is to save.
+    path: str, optional
+        Path to an existing directory, to where the file saved. If it not exist, raise error. 
+
+    """
+    import json, os, re
+
+    def _table_to_dict(tab: Table):
+
+        def _typename(_t: type):
+            return re.search(r"(?<=\')\w+", repr(_t)).group(0)
+
+        def _build_value(val: Any, _t: type):
+            return _t(val)
+
+        def _build_row(row: tuple):
+            return list(map(_build_value, row, tab.coltypes))
+
+        return {
+                    'cols' : tab.colnames,
+                    'types': list(map(_typename, tab.coltypes)),
+                    'data' : list(map(_build_row, list(zip(*tab.data))))
+               }
+
+    def _species_to_dict(sp: Species):
+        return {
+                    'id'    : sp._id,
+                    'Eion'  : sp.eion,
+                    'lines' : _table_to_dict(sp.linetab),
+                    'levels': _table_to_dict(sp.leveltab),
+               }
+
+    def _element_to_dict(elem: Element):
+        return {
+                    'symbol'  : elem.sym,
+                    'z'       : elem.z,
+                    'mass'    : elem.mass,
+                    'nspecies': elem.nspecies,
+                    'species' : list(map(lambda _s: _species_to_dict(), elem.species)),
+               }
+    
+    file = os.path.abspath(path)
+    if not os.path.isdir(file):
+        raise NotADirectoryError("the given path is not a directory or does not exist.")
+    file = os.path.join(file, f'{elem.sym.lower()}.json')
+
+    json.dump(_element_to_dict(elem), open(file, 'w'), indent = 4)
+    # json.dump(elem, open(file, 'w'), indent = 4, cls = ElementEncoder)
+    return

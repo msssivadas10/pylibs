@@ -2,7 +2,7 @@
 
 from typing import Any
 import numpy as np
-import re
+import re, json
 
 class TableError(Exception):
     """ Exception used by :class:`Table` class """
@@ -57,6 +57,28 @@ class Table:
 
     """
     __slots__ = 'colnames', 'coltypes', 'data', 'shape'
+
+    class JSONEncoder(json.JSONEncoder):
+        """
+        Custom json encoder for table objects.
+        """
+        def default(self, o: Any) -> Any:
+            def _typename(_t: type):
+                return re.search(r"(?<=\')\w+", repr(_t)).group(0)
+
+            def _build_value(val: Any, _t: type):
+                return _t(val)
+
+            def _build_row(row: tuple):
+                return list(map(_build_value, row, o.coltypes))
+
+            if isinstance(o, Table):
+                return {
+                            'cols' : o.colnames,
+                            'types': list(map(_typename, o.coltypes)),
+                            'data' : list(map(_build_row, list(zip(*o.data))))
+                       }
+            return super().default(o)
 
     def __init__(self, data: Any = ..., colnames: list = ..., coltypes: list = ...) -> None:
         if data is Ellipsis:

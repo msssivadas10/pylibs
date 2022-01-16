@@ -200,9 +200,12 @@ def sepctrum_test():
 
     q.searchPeaks(match=1, dist_ub=1.)
 
-    q.computeBoltzCoords('saha', 1., 1e+16)
+    # q._lines.print()
 
-    t = q.getBoltzCoords()
+    q.makeBoltzPlane(1., 1.e+17, fmt = 'saha')
+
+    b = q.getBoltzPlane()
+    # t = b.getPoints()
     # t.print()
 
     import matplotlib.pyplot as plt
@@ -210,10 +213,8 @@ def sepctrum_test():
 
     plt.figure()
     for elem in q._elem_idx.keys():
-        # for s in [1, 2]:
-        i = np.where(t.c('elem') == elem)[0]
-            # i = i[np.where(t.c('sp')[i] == s)[0]]
-        plt.plot(t.c('x')[i], t.c('y')[i], 'o')
+        t = b.getPoints(elem)
+        plt.plot(t.c('x'), t.c('y'), '+')
     plt.show()
     
 
