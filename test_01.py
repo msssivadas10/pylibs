@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 # code for testings
+from re import U
 import numpy as np
 from pylibs.spectrum import Spectrum, QAnalyser
 from pylibs.objects import Species, Element, Plasma, loadElement
@@ -208,14 +209,18 @@ def sepctrum_test():
     # t = b.getPoints()
     # t.print()
 
-    import matplotlib.pyplot as plt
-    plt.style.use('ggplot')
+    # b.getLineParam().print()
+    b.estimateTe('cu')
 
-    plt.figure()
-    for elem in q._elem_idx.keys():
-        t = b.getPoints(elem)
-        plt.plot(t.c('x'), t.c('y'), '+')
-    plt.show()
+    # import matplotlib.pyplot as plt
+    # plt.style.use('ggplot')
+
+    # plt.figure()
+    # sp = ... 
+    # for elem in q._elem_idx.keys():
+    #     t = b.getPoints(elem, sp)
+    #     plt.plot(t.c('x'), t.c('y'), '+')
+    # plt.show()
     
 
 if __name__ == "__main__":

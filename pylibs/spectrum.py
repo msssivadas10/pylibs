@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import numpy as np
+import warnings
 from .objects import Element, ElementSpecifier
 from .utils import Table, shape_
 from scipy.signal import find_peaks
@@ -135,15 +136,24 @@ class BoltzError(Exception):
     """
     ...
 
+class BoltzWarning(Warning):
+    """ 
+    Warning used by Boltzmann plane objects 
+    """
+    ...
 
 class BoltzPlane:
     """
     A object representing the Boltzmann plane. 
     """
-    __slots__ = 'elems', 'data', 'fmt', '_elem_idx', 'Te', 'Ne', "_qa"
+    __slots__ = (
+                    'elems', 'data', 'fmt', '_elem_idx', 'Te', 
+                    'Ne', "_qa", "_fits", "Te_err", 
+                )
 
     def __init__(self, elems: list, tab: Table, Te: float = ..., Ne: float = ..., fmt: str = 'boltz', tab_fmt: str = 'lines') -> None:
         self.Te, self.Ne = Te, Ne
+        self.Te_err      = 0.
 
         if not fmt in ['boltz', 'saha']:
             raise ValueError(f"invalid format `{fmt}`")
@@ -171,7 +181,8 @@ class BoltzPlane:
         else:
             raise ValueError(f"invalid value for `{tab_fmt}` table format")
 
-        self._qa         = None # setted by a QAnalyser object        
+        self._qa         = None # setted by a QAnalyser object   
+        self._do_fitting()     
 
     def _boltz_coords(self, tab: Table) -> tuple:
         """ 
@@ -222,11 +233,13 @@ class BoltzPlane:
         """
         return const - x / islope
 
-    def _fit_line_sp(self, elem: str, sp: int) -> tuple:
+    def _fit_line_sp(self, elem: str, sp: int = ...) -> tuple:
         """
         Fit the points to a straight line.
         """
         pts  = self.getPoints(elem, sp)
+        if not pts.shape[0]: # empty table
+            return [None, None], [None, None]
 
         popt, pcov = curve_fit(self._f, pts.c('x'), pts.c('y'), )
         return popt, np.sqrt(np.diag(pcov))
@@ -235,13 +248,55 @@ class BoltzPlane:
         """
         Fit lines to points on the plane.
         """
+        t = Table(
+                    colnames = ['elem', 'Te', 'const', 'err_Te', 'err_const'],
+                    coltypes = [str, float, float, float, float]
+                 )
+        if self.fmt == 'boltz':
+            t.insert_column([], 1, 'sp', int) # insert a column after 'elem'
+
+            for elem in self.elems:
+                for sp in range(elem.nspecies):
+                    (Te, const), (err_Te, err_const) = self._fit_line_sp(elem.sym, sp)
+                    if Te is None:
+                        continue
+                    # print([type(x) for x in [elem.sym, sp, Te, const, err_Te, err_const]])
+                    t.add_row([elem.sym, sp, Te, const, err_Te, err_const])
+        else:
+            # fmt is 'saha' - consider all species of an element
+            for elem in self.elems:
+                (Te, const), (err_Te, err_const) = self._fit_line_sp(elem.sym)
+                if Te is None:
+                    continue
+                # print([type(x) for x in [elem.sym, Te, const, err_Te, err_const]])
+                t.add_row([elem.sym, Te, const, err_Te, err_const])
+        self._fits = t
         return
+
+    def _filter_by_keys(self, tab: Table, elem: str = ..., sp: int = ...) -> Table:
+        """
+        Filter the given table by the keys.
+        """
+        out = tab
+        i = np.arange(out.shape[0])
+        if elem is not ... :
+            i = i[np.where(out.c('elem') == elem.capitalize())[0]]
+        if sp is not ... :
+            i = i[np.where(out.c('sp')[i] == sp)[0]]
+        i = list(i)
+        return out.subtable(i)
+
+    def getLineParam(self, elem: str = ..., sp: int = ...) -> Any:
+        """
+        Get the fitting parameters of a line.
+        """
+        return self._filter_by_keys(self._fits, elem, sp)
 
     def setTe(self, val: float) -> None:
         """
         Set the value of temeperature (in eV).
         """
-        self.Te = val
+        self.Te, self.Te_err = val, 0.
         return
 
     def setNe(self, val: float) -> None:
@@ -251,11 +306,27 @@ class BoltzPlane:
         self.Ne = val
         return
 
-    def estimateTe(self) -> None:
+    def estimateTe(self, use: str = 'av') -> None:
         """
         Estimate temperature from boltzmann plane points.
         """
-        pass
+        if use == "av":
+            t = self._filter_by_keys(self._fits)
+        else:
+            elem, sp = ElementSpecifier(use).value()
+            if self.fmt == 'boltz':
+                if sp is None:
+                    raise BoltzError("species should be specified to estimate Te")
+            else:
+                if sp is not None:
+                    warnings.warn("species value not used for `saha` format", BoltzWarning)
+                sp = ...
+
+            t  = self._filter_by_keys(self._fits, elem, sp)
+
+        self.Te     = np.mean(t.c('Te'))
+        self.Te_err = np.std(t.c('err_Te'))
+        return
 
     def getPoints(self, elem: str = ..., sp: int = ...) -> Table:
         """
@@ -274,18 +345,13 @@ class BoltzPlane:
             Points on the Boltzmann plane. This table will have four columns - `x`, `y`, 'elem` and `sp` for x and y coordinates, element symbol and species index respectively. 
 
         """
-        out = self.data
-        i = np.arange(out.shape[0])
-        if elem is not ... :
-            i = i[np.where(out.c('elem') == elem.capitalize())[0]]
-        if sp is not ... :
-            i = i[np.where(out.c('sp')[i] == sp)[0]]
-        i = list(i)
-        return out.subtable(i)
+        return self._filter_by_keys(self.data, elem, sp)
 
 
 class AnalyserError(Exception):
-    """ Exception used by :class:`QAnalyser` objects """
+    """ 
+    Exception used by :class:`QAnalyser` objects 
+    """
     ...
 
 

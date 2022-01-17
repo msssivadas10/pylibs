@@ -568,8 +568,6 @@ class ElementSpecifier:
         Parsed value as a (symbol, species id) pair. For un-specified species, only symbol is 
         returned.
         """
-        if self._id is None:
-            return self._sym
         return self._sym, self._id
 
     def symbol(self, ) -> str:
