@@ -1,15 +1,10 @@
 #!/usr/bin/python3
 
 # code for testings
-from re import U
-import numpy as np
 from pylibs.spectrum import Spectrum, QAnalyser
 from pylibs.objects import Species, Element, Plasma, loadElement
 from pylibs.utils import Table 
 
-# =================================================================================
-# Test functions
-# =================================================================================
 
 def loadSpecies(lines_file: str, levels_file: list, eion: list) -> list:
     """
