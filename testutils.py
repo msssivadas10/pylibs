@@ -149,7 +149,7 @@ def testSpectrum_CuSn(cu: float = 0.7, sn: float = 0.3, Te: float = 1., Ne: floa
         Computed plasma spectrum.
 
     """
-    p = testPlama_CuSn(cu, sn, Te, Ne) # test plasma
+    p = testPlasma_CuSn(cu, sn, Te, Ne) # test plasma
     s = p.computeSpectrum(_from, _to, res) # spectrum
 
     info = {
