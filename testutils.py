@@ -98,7 +98,7 @@ def loadTestElements_CuSn() -> tuple:
     
     return copper, tin
 
-def testPlama_CuSn(cu: float = 0.7, sn: float = 0.3, Te: float = 1., Ne: float = 1.e+17) -> Plasma:
+def testPlasma_CuSn(cu: float = 0.7, sn: float = 0.3, Te: float = 1., Ne: float = 1.e+17) -> Plasma:
     """
     Create a test plasma of a copper-tin compound.
 
