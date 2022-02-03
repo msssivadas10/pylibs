@@ -6,7 +6,7 @@ from pylibs.objects import Species, Element, Plasma, loadElement
 from pylibs.utils import Table 
 
 
-def loadSpecies(lines_file: str, levels_file: list, eion: list) -> list:
+def _load_species(lines_file: str, levels_file: list, eion: list) -> list:
     """
     Load species data from files. To use this function, the data files should be of a specific format. Otherwise, the result may be unwanted.
 
@@ -119,7 +119,7 @@ def testPlama_CuSn(cu: float = 0.7, sn: float = 0.3, Te: float = 1., Ne: float =
         Copper-tin plasma object.
 
     """
-    copper, tin = _load_test_elements_cu_sn()
+    copper, tin = loadTestElements_CuSn()
     return Plasma({copper: cu, tin: sn}, Te, Ne)
 
 def testSpectrum_CuSn(cu: float = 0.7, sn: float = 0.3, Te: float = 1., Ne: float = 1e+17, _from: float = 350., _to: float = 650., res: int = 500):
@@ -149,7 +149,7 @@ def testSpectrum_CuSn(cu: float = 0.7, sn: float = 0.3, Te: float = 1., Ne: floa
         Computed plasma spectrum.
 
     """
-    p = _test_cu_sn_plasma(cu, sn, Te, Ne) # test plasma
+    p = testPlama_CuSn(cu, sn, Te, Ne) # test plasma
     s = p.computeSpectrum(_from, _to, res) # spectrum
 
     info = {
