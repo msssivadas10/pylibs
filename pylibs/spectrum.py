@@ -292,11 +292,11 @@ class BoltzPlane:
         """
         return self._filter_by_keys(self._fits, elem, sp)
 
-    def setTe(self, val: float) -> None:
+    def setTe(self, val: float, err: float = 0.) -> None:
         """
         Set the value of temeperature (in eV).
         """
-        self.Te, self.Te_err = val, 0.
+        self.Te, self.Te_err = val, err
         return
 
     def setNe(self, val: float) -> None:
@@ -323,9 +323,9 @@ class BoltzPlane:
                 sp = ...
 
             t  = self._filter_by_keys(self._fits, elem, sp)
-
+        
         self.Te     = np.mean(t.c('Te'))
-        self.Te_err = np.std(t.c('err_Te'))
+        self.Te_err = np.sqrt(np.mean(t.c('err_Te')**2)) # error prop.: var(a+b) = var(a) + var(b)
         return
 
     def getPoints(self, elem: str = ..., sp: int = ...) -> Table:

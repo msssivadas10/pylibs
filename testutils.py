@@ -1,15 +1,10 @@
 #!/usr/bin/python3
 
 # code for testings
-from re import U
-import numpy as np
 from pylibs.spectrum import Spectrum, QAnalyser
 from pylibs.objects import Species, Element, Plasma, loadElement
 from pylibs.utils import Table 
 
-# =================================================================================
-# Test functions
-# =================================================================================
 
 def _load_species(lines_file: str, levels_file: list, eion: list) -> list:
     """
@@ -65,7 +60,7 @@ def _load_species(lines_file: str, levels_file: list, eion: list) -> list:
 
     return specs
 
-def _load_test_elements_cu_sn() -> tuple:
+def loadTestElements_CuSn() -> tuple:
     """
     Create two test elements: copper and tin, with first two species.
     """
@@ -103,7 +98,7 @@ def _load_test_elements_cu_sn() -> tuple:
     
     return copper, tin
 
-def _test_cu_sn_plasma(cu: float = 0.7, sn: float = 0.3, Te: float = 1., Ne: float = 1.e+17) -> Plasma:
+def testPlasma_CuSn(cu: float = 0.7, sn: float = 0.3, Te: float = 1., Ne: float = 1.e+17) -> Plasma:
     """
     Create a test plasma of a copper-tin compound.
 
@@ -124,10 +119,10 @@ def _test_cu_sn_plasma(cu: float = 0.7, sn: float = 0.3, Te: float = 1., Ne: flo
         Copper-tin plasma object.
 
     """
-    copper, tin = _load_test_elements_cu_sn()
+    copper, tin = loadTestElements_CuSn()
     return Plasma({copper: cu, tin: sn}, Te, Ne)
 
-def _test_cu_sn_spectrum(cu: float = 0.7, sn: float = 0.3, Te: float = 1., Ne: float = 1e+17, _from: float = 350., _to: float = 650., res: int = 500):
+def testSpectrum_CuSn(cu: float = 0.7, sn: float = 0.3, Te: float = 1., Ne: float = 1e+17, _from: float = 350., _to: float = 650., res: int = 500):
     """
     The spectrum of a test plasma (copper-tin alloy) for test uses.
 
@@ -154,7 +149,7 @@ def _test_cu_sn_spectrum(cu: float = 0.7, sn: float = 0.3, Te: float = 1., Ne: f
         Computed plasma spectrum.
 
     """
-    p = _test_cu_sn_plasma(cu, sn, Te, Ne) # test plasma
+    p = testPlasma_CuSn(cu, sn, Te, Ne) # test plasma
     s = p.computeSpectrum(_from, _to, res) # spectrum
 
     info = {
@@ -168,60 +163,3 @@ def _test_cu_sn_spectrum(cu: float = 0.7, sn: float = 0.3, Te: float = 1., Ne: f
                 "plasma": p,  
            }
     return Spectrum(wavelen = s.c('lambda'), intens = s.c('sum'), attrs = info)
-
-def objects_test():
-    p = _test_cu_sn_plasma()
-
-    import matplotlib.pyplot as plt
-    plt.style.use('ggplot')
-
-    plt.figure()
-    y = p.computeSpectrum(350., 650., 1000)
-    plt.plot(y.c('lambda'), y.c('sum'))
-    plt.show()
-
-def sepctrum_test():
-    ref = {
-        510.554 : 'cu-1',
-        515.324 : 'cu-1',
-        521.820 : 'cu-1',
-        380.1011: 'sn-1',
-        452.4734: 'sn-1', 
-        533.2339: 'sn-2', 
-        556.1910: 'sn-2', 
-        558.8815: 'sn-2', 
-        579.8860: 'sn-2', 
-        645.3542: 'sn-2', 
-        684.4186: 'sn-2',
-    }
-
-    s = _test_cu_sn_spectrum()
-    q = QAnalyser(s, list(s.attrs['plasma'].comp.keys()))
-    q.setReferenceLines(ref)
-
-    q.searchPeaks(match=1, dist_ub=1.)
-
-    # q._lines.print()
-
-    q.makeBoltzPlane(1., 1.e+17, fmt = 'saha')
-
-    b = q.getBoltzPlane()
-    # t = b.getPoints()
-    # t.print()
-
-    # b.getLineParam().print()
-    b.estimateTe('cu')
-
-    # import matplotlib.pyplot as plt
-    # plt.style.use('ggplot')
-
-    # plt.figure()
-    # sp = ... 
-    # for elem in q._elem_idx.keys():
-    #     t = b.getPoints(elem, sp)
-    #     plt.plot(t.c('x'), t.c('y'), '+')
-    # plt.show()
-    
-
-if __name__ == "__main__":
-    sepctrum_test()
