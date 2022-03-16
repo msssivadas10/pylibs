@@ -1,4 +1,4 @@
-from typing import Any, Iterable, List, Type
+from typing import Any, Iterable, Type
 from collections import namedtuple
 import numpy as np, re, json
 
@@ -13,7 +13,7 @@ class Table:
     like the attributes or using `[]` operators as keys. Use the `subset` 
     property to get a subset of the table.
 
-    This class is does not define the table methods. All the tables should be 
+    This class is does not define all table methods. All the tables should be 
     created as subclasses of this class. Use the `table` function for creating 
     specialized tables. A table can be extended only appending rows to the end 
     of the table. To add a column to the table, a new class of tables must be 
@@ -38,13 +38,25 @@ class Table:
     <table 'my_table': cols=('x', 'y'), shape=(3, 2)>
 
     """
-    __slots__ = '_nr', '_nc', '_subset_getter', 
+    __slots__ = '_nr', '_nc', '_subset_getter', 'table_row', 
     __name__  = ''
 
     def __init__(self, *args, **kwargs) -> None:
-        self._nr: int = ...
-        self._nc: int = ...
-        self._subset_getter: TableSubsetGetter = ...
+        self._nr: int
+        self._nc: int
+        self._subset_getter: TableSubsetGetter
+        self.table_row: Type[tuple]
+    
+    def __repr__(self) -> str:
+        return f"<table '{self.__name__}': cols={self.colnames}, shape={self.shape}>"
+
+    def __getitem__(self, __key: str) -> Any:
+        if self.hascolumn(__key):
+            return getattr(self, __key)
+        raise TableError("no column called '{}'".format(__key))
+    
+    def _colnames(self) -> tuple:
+        ...
 
     @property
     def shape(self) -> tuple:
@@ -64,7 +76,7 @@ class Table:
     @property
     def colnames(self) -> tuple:
         """ Names of columns in this table. """
-        ...
+        return self._colnames()
     
     @property
     def subset(self) -> object:
@@ -91,15 +103,30 @@ class Table:
         <table 'my_table': cols=('x',), shape=(2, 1)>
         
         """
-        ...
+        return self._subset_getter
 
     def append(self, *args, **kwargs) -> None:
         """ Append a row to the table. """
-        ...
+        args = dict(zip(self.colnames, args))
+        for __name in self.colnames:
+            if __name in args.keys():
+                if __name in kwargs.keys():
+                    raise TableError("got multiple values for column '{}'".format(__name))
+                __value = args[__name]
+            elif __name in kwargs.keys():
+                __value = kwargs[__name]
+            else:
+                raise TableError("missing value for column '{}'".format(__name))
+            setattr(self, __name, np.append(getattr(self, __name), __value))
+        self._nr += 1
 
     def hascolumn(self, __key: str) -> bool:
         """ Check if the table has a column with name `__key`.  """
-        ...
+        if not isinstance(__key, str):
+            raise TableError("key must be a string")
+        elif __key in self.colnames:
+            return True
+        return False
 
     def typeof(self, __key: str, __type: Any = ...) -> Any:
         """ 
@@ -118,7 +145,12 @@ class Table:
         __type: numpy.dtype, None
             Type of the column (if not `__type` argument is given), else None.
         """
-        ...
+        if self.hascolumn(__key):
+            if __type is ... : 
+                return getattr(self, __key).dtype
+            setattr(self, __key, getattr(self, __key).astype(__type))
+            return
+        raise TableError("no column called '{}'".format(__key))
 
     def r(self, __i: int) -> tuple:
         """ 
@@ -135,11 +167,60 @@ class Table:
             A namedtuple containing the values in the row. Its field names 
             correspond to the column names.
         """
-        ...
+        return self.table_row(
+                                **{
+                                    __col: self[__col][__i] for __col in self.colnames
+                                  }
+                             )
+    
+    def sort(self, __key: str, reverse: bool = False) -> None:
+        """
+        Sort the table based on the column specified.
+
+        Parameters
+        ----------
+        __key: str
+            Column used to get the order.
+        reverse: bool, optional
+            If true, sort the table in the reverse order.
+
+        """
+        order = np.argsort(self[__key])
+        if reverse:
+            order = order[::-1]
+        for __key in self.colnames:
+            setattr(self, __key, self[__key][order])
 
     def print(self, fmt: Iterable[str], sep: str = ' ', lnchr: str = '-') -> None:
         """ Print the table. """
-        ...
+        __fmt_pattern = r'(?<={:)([\^\<\>\s]*)([\+\-\s]*)(\d*)([\.,]*)(\d*)([bcdoxXneEfFgGs\s]*)(?=})'
+
+        if not isinstance(fmt, list):
+            raise TypeError("fmt must be a list")
+        elif len(fmt) != self.nc:
+            raise TableError("not enough format specifiers")
+        __val_fmt, __head_fmt = [], []
+        for __fmt in fmt:
+            if not isinstance(__fmt, str):
+                raise TypeError("format specifier must be a 'str'")
+            __match = re.search(__fmt_pattern, __fmt)
+            if not __match:
+                raise TableError(f"invalid format specifier '{__fmt}'")
+            _align, _sign, _width, _dsep, _prec, _pres = __match.groups()
+            __val_fmt.append(__fmt)
+            __head_fmt.append(''.join(['{:{fill}', _align if _align else '>', _width, 's}']))
+
+        val_fmt, head_fmt = sep.join(__val_fmt), sep.join(__head_fmt)
+
+        # print column names:
+        print(head_fmt.format(*self.colnames, fill = ''))
+
+        # print a line:
+        print(head_fmt.format(*[''] * self.nc, fill = lnchr))
+
+        # print rows:
+        for i in range(self.nr):
+            print(val_fmt.format(*self.r(i)))
 
 class TableSubsetGetter:
     """ 
@@ -188,8 +269,8 @@ class JSONEncoder(json.JSONEncoder):
         if not isinstance(o, Table):
             return super().default(o)
         
-        # json format of the table is {"key": ["type", *data], ...}
-        _dict = {}
+        # json format of the table:
+        _dict = {'@table': o.__name__, '@shape': o.shape}
         for key in o.colnames:
             value = o[key]
 
@@ -201,6 +282,24 @@ class JSONEncoder(json.JSONEncoder):
             
             _dict[key] = [tp_name, *list(value)]
         return _dict
+
+class JSONDecoder(json.JSONDecoder):
+    """
+    Custom JSON decoder for table objects.
+    """
+
+    def decode(self, s: str) -> Any:
+        _dict = super().decode(s)
+        if '@table' not in _dict.keys():
+            return _dict # not a table
+
+        cols    = [__key for __key in _dict.keys() if not __key.startswith('@')]
+        table_t = table(_dict['@table'], cols)
+
+        data    = {}
+        for key in cols:
+            data[key] = np.array(_dict[key][1:], dtype = _dict[key][0], )
+        return table_t(**data)
 
 def table(name: str, cols: Iterable[str]) -> Type[Table]:
     """ 
@@ -235,8 +334,6 @@ def table(name: str, cols: Iterable[str]) -> Type[Table]:
     elif len(cols) != len(set(cols)):
         raise TableError("column names must be unique")
 
-    table_row = namedtuple('table_row', cols)
-
     def _init(self: Table, *args, **kwargs) -> None:
         self._nr, self._nc = 0, _ncols
         args = dict(zip(self.__slots__, args))
@@ -258,111 +355,20 @@ def table(name: str, cols: Iterable[str]) -> Type[Table]:
             setattr(self, __name, __value)
 
         self._subset_getter = TableSubsetGetter(self)
-
-    def _repr(self: Table) -> str:
-        return f"<table '{self.__name__}': cols={self.colnames}, shape={self.shape}>"
-
-    def _append(self: Table, *args, **kwargs) -> None:
-        """ append a row at the end of the table. """
-        args = dict(zip(self.colnames, args))
-        for __name in self.colnames:
-            if __name in args.keys():
-                if __name in kwargs.keys():
-                    raise TableError("got multiple values for column '{}'".format(__name))
-                __value = args[__name]
-            elif __name in kwargs.keys():
-                __value = kwargs[__name]
-            else:
-                raise TableError("missing value for column '{}'".format(__name))
-            setattr(self, __name, np.append(getattr(self, __name), __value))
-        self._nr += 1
-
-    def _hascolumn(self: Table, __key: str) -> bool:
-        """ check if a table has the specified column. """
-        if not isinstance(__key, str):
-            raise TableError("key must be a string")
-        elif __key in self.colnames:
-            return True
-        return False
-
-    def _getitem(self: Table, __key: str) -> Any:
-        """ get the specified column. """
-        if self.hascolumn(__key):
-            return getattr(self, __key)
-        raise TableError("no column called '{}'".format(__key))
-
-    def _typeof(self: Table, __key: str, __type: Any = ...) -> Any:
-        """ get or set the type of a column. """
-        if self.hascolumn(__key):
-            if __type is ... : 
-                return getattr(self, __key).dtype
-            setattr(self, __key, getattr(self, __key).astype(__type))
-        raise TableError("no column called '{}'".format(__key))
-
-    def _subset(self: Table) -> tuple:
-        """ get the specified row. """
-        return self._subset_getter
+        self.table_row      = namedtuple('table_row', cols)
 
     def _colnames(self: Table) -> tuple:
         """ get the column names. """
         return self.__slots__
-
-    def _r(self: Table, __i: int) -> tuple:
-        """ get a specified row in the table. """
-        return self.table_row(
-                                **{
-                                    __col: self[__col][__i] for __col in self.colnames
-                                  }
-                             )
-
-    def _print(self: Table, fmt: List[str], sep: str = ' ', lnchr: str = '-') -> None:
-        """ print the table. """
-        __fmt_pattern = r'(?<={:)([\^\<\>\s]*)([\+\-\s]*)(\d*)([\.,]*)(\d*)([bcdoxXneEfFgGs\s]*)(?=})'
-
-        if not isinstance(fmt, list):
-            raise TypeError("fmt must be a list")
-        elif len(fmt) != self.nc:
-            raise TableError("not enough format specifiers")
-        __val_fmt, __head_fmt = [], []
-        for __fmt in fmt:
-            if not isinstance(__fmt, str):
-                raise TypeError("format specifier must be a 'str'")
-            __match = re.search(__fmt_pattern, __fmt)
-            if not __match:
-                raise TableError(f"invalid format specifier '{__fmt}'")
-            _align, _sign, _width, _dsep, _prec, _pres = __match.groups()
-            __val_fmt.append(__fmt)
-            __head_fmt.append(''.join(['{:{fill}', _align if _align else '>', _width, 's}']))
-
-        val_fmt, head_fmt = sep.join(__val_fmt), sep.join(__head_fmt)
-
-        # print column names:
-        print(head_fmt.format(*self.colnames, fill = ''))
-
-        # print a line:
-        print(head_fmt.format(*[''] * self.nc, fill = lnchr))
-
-        # print rows:
-        for i in range(self.nr):
-            print(val_fmt.format(*self.r(i)))
-        
+      
     return type(
                     name, 
                     (Table, ),
                     {
-                        '__slots__'   : tuple(cols),
-                        '__name__'    : name,
-                        'table_row'   : table_row,
-                        '__init__'    : _init,
-                        '__repr__'    : _repr,
-                        '__getitem__' : _getitem,
-                        'append'      : _append,
-                        'hascolumn'   : _hascolumn,
-                        'typeof'      : _typeof,
-                        'subset'      : property(_subset, ),
-                        'colnames'    : property(_colnames, ),
-                        'r'           : _r, 
-                        'print'       : _print,
+                        '__slots__' : tuple(cols),
+                        '__name__'  : name,
+                        '__init__'  : _init,
+                        '_colnames' : _colnames,
                     }
                 )
 
@@ -470,17 +476,172 @@ def create(table_t: Type[Table], *args, **kwargs) -> Table:
             raise TableError(f"no values are given for column '{key}'")
 
     return table_t(**cols) # make the table
+
+# ==================================================
+# reading and writing files         
+# ==================================================
+    
+def save(fname: str, tb: Table, sep: str = ',', com: str = '#', head: str = '', foot: str = '') -> None:
+    """
+    Save the table to a plain text file. This file will have a specific format, which 
+    is helps in reading tables from a file. In a table file, the first four lines is 
+    the table specification, which tells the table structure in `@key: value` format. 
+    The keys are
+    
+    1. `table`: name of the table.
+    2. `shape`: shape of the table, (no. of rows, no. of columns).
+    3. `names`: column names as a sequence, seperated by `sep`.
+    4. `types`: columns data types as a sequencd, seperated by `sep`. 
+
+    This will followed by headers (if any), table data as delimited lines and finally 
+    footer text (if any). Table specifications, header and footer are commented lines.
+
+    Parameters
+    ----------
+    fname: str
+        File name or path to the file.
+    tb: Table
+        Table to save. Must be an instance of a subclass of :class:`Table`.
+    sep: str, optional
+        Charecter used as a seperator. Default is `,`.
+    com: str, optional
+        Charecter used to comment lines. Default is `#`.
+    head: str, optional
+        String to write as comments at the beginning of the file.
+    foot: str, optional
+        String to write as comments at the end of the file.
+
+    Examples
+    --------
+    >>> my_table = table('my_table', ['x', 'y'])
+    >>> t1       = my_table([1.0, 2.0, 3.0], [0.9, 2.1, 3.2])
+    >>> save('data.txt', t1)
+
+    This data may be opened by `numpy.loadtxt` as
+
+    >>> np.loadtxt('data.txt', delimiter = ',')
+    array([[1. , 0.9],
+           [2. , 2.1],
+           [3. , 3.2]])
+    
+    """
+    if len(sep) != 1:
+        raise ValueError("sep must be a single charecter")
+    if len(com) != 1:
+        raise ValueError("com must be a single charecter")
+
+    _names, _types = [], []
+    for key in tb.colnames:
+        tp_name  = tb[key].dtype.name
+        tp, size =re.search(r'([a-z]+)(\d*)', tp_name).groups()
+        if tp not in ['bool', 'int', 'float', 'complex', 'str']:
+            raise TypeError(f"type '{tp_name}' is not supported")
+        _names.append(key)
+        _types.append(tp_name)
+
+    string = '\n'.join([
+                        '\n'.join(
+                                    map(
+                                            lambda _str: '{} {}'.format(com, _str),
+                                            [ 
+                                                '@table: ' + tb.__name__,
+                                                '@shape: ' + str(tb.shape),
+                                                '@names: ' + sep.join(_names),
+                                                '@types: ' + sep.join(_types),
+                                                *head.splitlines(), 
+                                            ]
+                                        )
+                                ),
+                        '\n'.join(
+                                    map(
+                                            lambda __x: sep.join(
+                                                                    map(
+                                                                            lambda _o: str(_o),
+                                                                            __x
+                                                                        )
+                                                                ),
+                                            zip(*[tb[__key] for __key in tb.colnames])
+                                        )
+                                ),
+                        '\n'.join(
+                                    map(
+                                            lambda _str: '{} {}'.format(com, _str),
+                                            foot.splitlines()
+                                        )
+                                )
+                    ])
+
+    with open(fname, 'w') as f:
+        f.write(string.strip())
+
+def load(fname: str, sep: str = ',', com: str = '#') -> Table:
+    """
+    Load a table from a plain text file. For this to work, the file must be in the 
+    correct format, specified in the documentation of `save` or created with `save` 
+    function. 
+
+    Parameters
+    ----------
+    fname: str
+        File name or path to the file.
+    sep: str, optional
+        Charecter used as a seperator. Default is `,`.
+    com: str, optional
+        Charecter used to comment lines. Default is `#`.
+
+    Returns
+    -------
+    tb: Table
+        Output table.
+
+    Examples
+    --------
+    >>> load('data.txt')
+    <table 'my_table': cols=('x', 'y'), shape=(3, 2)>
+    
+    """
+    tspec = {}
+    
+    with open(fname, 'r') as f:
+        lines = f.read().splitlines()
+
+    # get table specifications: lines 1-4
+    for __line in lines[:4]:
+        if not __line.startswith(com):
+            raise TableError("invalid format for a table file")
+
+        __line     = __line[len(com):].strip()
+        key, value = re.search(r'\@(\w+): ([\D\d]*)', __line).groups()
+        if key == 'table':
+            tspec['name'] = value
+        elif key == 'shape':
+            tspec['shape'] = list(map(int, re.search(r'(\d*),\s*(\d*)', value).groups()))
+        elif key == 'names':
+            tspec['cols'] = [x.strip() for x in value.split(sep)]
+        elif key == 'types':
+            tspec['types'] = [x.strip() for x in value.split(sep)]
+    
+    data = []
+    for __line in lines[4:]:
+        if __line.startswith(com):
+            continue
+        data.append(__line.split(sep))
+    
+    data = {
+                key: np.array(x, __tp) for key, __tp, x in zip(
+                                                                tspec['cols'], 
+                                                                tspec['types'], 
+                                                                np.asarray(data).T
+                                                              )
+           }
+
+    table_t = table(tspec['name'], tspec['cols'])
+    return table_t(**data)
+            
                 
 
 
 
 if __name__ == "__main__":
-    my_table = table('my_table', ['x', 'y'])
-    t1       = my_table([1.0, 2.0, 3.0], [0.9, 2.1, 3.2])
-
-    my_table2 = extent(my_table, ['z'])
-
-    t2 = create(my_table2, t1, z = [0.3, 0.1, 0.2])
-    print(json.dumps(t2, cls = JSONEncoder, indent = 4))
-
-    
+    ...
+    np.sort()
