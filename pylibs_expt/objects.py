@@ -2,9 +2,13 @@ from collections import namedtuple
 from itertools import product, repeat
 from typing import Any, Dict, Sequence, Type, Union
 from scipy.interpolate import CubicSpline
-import table, warnings, re
+import warnings, re
 import numpy as np
 import numpy.random as rnd
+try:
+    import table
+except Exception:
+    from . import table
 
 space = namedtuple('space', ['start', 'stop', 'num'])
 
@@ -31,7 +35,7 @@ class LinesTable(table.Table):
 
         self.acc = None
         if acc is not None:
-            if np.ndim != 1:
+            if np.ndim(acc) != 1:
                 raise TypeError("all aruments must be arrays")
             elif len(acc) != __len:
                 raise table.TableError("all columns should have the same size")
@@ -67,7 +71,7 @@ class LinesTable(table.Table):
         self.table_row      = namedtuple('Line', self._colnames())
 
     @property
-    def r_aki(self) -> Any:
+    def aki_r(self) -> Any:
         """ A random value for Aki based on the accuracy data. """
         if self.acc is None:
             return self.aki
@@ -126,7 +130,7 @@ class LevelsTable(table.Table):
     __slots__ = 'g', 'value', 'sp', 'elem', '_cols', 'acc', 
     __name__  = 'LevelsTable'
 
-    def __init__(self, g: Sequence[int], value: Sequence[float], acc: Sequence[float] = None, sp: int = ..., elem: str = ...) -> None:
+    def __init__(self, g: Sequence[int], value: Sequence[float], acc: Sequence[float] = None, sp: int = -1, elem: str = '') -> None:
         self._cols = ['g', 'value']
 
         if np.ndim(g) != 1 or np.ndim(value) != 1:
@@ -146,7 +150,7 @@ class LevelsTable(table.Table):
             self.acc = acc
             self._cols.append('acc')
 
-        self.sp, self.elem  = sp, elem
+        self.sp, self.elem  = sp, elem.lower()
         self._nc, self._nr  = len(self._cols), __len
         self._subset_getter = table.TableSubsetGetter(self)
         self.table_row      = namedtuple('Level', self._colnames())
@@ -221,10 +225,7 @@ class Plasma:
         """ Configure the plasma with current settings. """
         if self.Te is ... or self.Ne is ... :
             raise ValueError("plasma is not setup")
-            
         self.spectab.z = self.ztab(self.Te)
-
-
 
 def element(key: str, nspec: int, m: float, eion: Sequence[float], levels: Sequence[LevelsTable]) -> Plasma.Element:
     """
@@ -356,16 +357,16 @@ def plasma(name: str, elems: Sequence[Plasma.Element], linetab: LinesTable, Tspa
 
 
 
-from numpy.random import uniform, choice, randint
+# from numpy.random import uniform, choice, randint
 
-x = element('x', 2, 10.0, [1.0, 3.0], [LevelsTable(g=randint(1, 3, 10), value=uniform(0,5,10)), LevelsTable(g=randint(1, 3, 10), value=uniform(0,5,10))])
-y = element('y', 1, 14.0, [13.0, ], [LevelsTable(g=randint(1, 3, 10), value=uniform(0,5,10)), ])
+# x = element('x', 2, 10.0, [1.0, 3.0], [LevelsTable(g=randint(1, 3, 10), value=uniform(0,5,10)), LevelsTable(g=randint(1, 3, 10), value=uniform(0,5,10))])
+# y = element('y', 1, 14.0, [13.0, ], [LevelsTable(g=randint(1, 3, 10), value=uniform(0,5,10)), ])
 
 
-l = LinesTable(
-    uniform(400, 600, 10), uniform(1e+7, 1e+8, 10), uniform(0.0, 10.0, 10), randint(0, 5, 10), choice(['x', 'y'], 10), choice([1, 2], 10)
-)
+# l = LinesTable(
+#     uniform(400, 600, 10), uniform(1e+7, 1e+8, 10), uniform(0.0, 10.0, 10), randint(0, 5, 10), choice(['x', 'y'], 10), choice([1, 2], 10)
+# )
 
-p = plasma('a', [x, y], l)
-q = p(x=0.1,)
-q.set(1.0, 1e+15)
+# p = plasma('a', [x, y], l)
+# q = p(x=0.1,)
+# q.set(1.0, 1e+15)
