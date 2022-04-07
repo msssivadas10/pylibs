@@ -98,7 +98,7 @@ class LinesTable(table.Table):
             raise table.TableError("table has no column called 'acc'")
         return super().append(**values)
 
-    def getIntensities(self, Te: float, ns: Union[Sequence[float], float] = 1.0):
+    def getIntensities(self, Te: float, ns: Union[Sequence[float], float] = 1.0) -> None:
         """
         Fill the `intens` column with calculated intensity values.
         """
