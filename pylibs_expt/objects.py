@@ -4,6 +4,7 @@ from typing import Any, Dict, Sequence, Type, Union
 from scipy.interpolate import CubicSpline
 import table, warnings, re
 import numpy as np
+import numpy.random as rnd
 
 space = namedtuple('space', ['start', 'stop', 'num'])
 
@@ -64,6 +65,13 @@ class LinesTable(table.Table):
         self._nc, self._nr  = len(self._cols), __len
         self._subset_getter = table.TableSubsetGetter(self)
         self.table_row      = namedtuple('Line', self._colnames())
+
+    @property
+    def r_aki(self) -> Any:
+        """ A random value for Aki based on the accuracy data. """
+        if self.acc is None:
+            return self.aki
+        return rnd.normal(loc = self.aki, scale = 0.01 * self.acc * self.aki)
 
     def __repr__(self) -> str:
         return f"<LinesTable: {self.nr} lines'>"
