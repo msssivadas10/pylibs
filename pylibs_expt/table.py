@@ -120,6 +120,21 @@ class Table:
             setattr(self, __name, np.append(getattr(self, __name), __value))
         self._nr += 1
 
+    def join(self, other: object) -> None:
+        """ 
+        Join another table with this table. If the other table has columns 
+        different from this, they will be ignored.
+        """
+        if not isinstance(other, Table):
+            raise TypeError("other must be a 'Table' object")
+        elif type(self) != type(other):
+            raise TypeError("other must be a '{}' table".format(self.__name__))
+        for key in self.colnames:
+            if not other.hascolumn(key):
+                raise TableError("other has no column '{}'".format(key))
+            setattr(self, key, np.append(self[key], other[key]))
+        self._nr += other._nr
+
     def hascolumn(self, __key: str) -> bool:
         """ Check if the table has a column with name `__key`.  """
         if not isinstance(__key, str):
@@ -643,5 +658,4 @@ def load(fname: str, sep: str = ',', com: str = '#') -> Table:
 
 
 if __name__ == "__main__":
-    ...
-    np.sort()
+    pass
