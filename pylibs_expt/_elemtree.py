@@ -1,5 +1,6 @@
 from typing import Any, Iterable, Sequence, Union
 from scipy.interpolate import CubicSpline
+from functools import reduce
 import numpy as np
 try:
     import tree
@@ -53,11 +54,19 @@ class _SpeciesNode(tree.Node):
         """ Disconnect the levels table from the node. """
         return self.setLevels(None)
 
+    @property
+    def lines(self) -> LinesTable:
+        return self._lines
+    
+    @property
+    def levels(self) -> LevelsTable:
+        return self._levels
+
 class SpeciesNode(_SpeciesNode):
     """ 
     A node representing a species of some element.
     """
-    __slots__ = 'Vs', 'Ns', 'Us', 'pfunc', 
+    __slots__ = 'Vs', 'Ns', 'Us', 'pfunc', 'T'
     __name__  = 'SpeciesNode'
 
     def __init__(self, key: int, Vs: float, levels: LevelsTable, lines: LinesTable = None, interpolate: bool = True, T: Any = None) -> None:
@@ -69,6 +78,7 @@ class SpeciesNode(_SpeciesNode):
             raise TypeError("Vs must be a scalar")
 
         self.Vs, self.Ns, self.Us = Vs, None, None
+        self.T                    = None
         self.pfunc                = None
 
         # if interpolation is on, make a spline of the partition function values 
@@ -88,6 +98,7 @@ class SpeciesNode(_SpeciesNode):
             self.Us = self.pfunc(T)
         else:
             self.Us = self.levels.U(T)
+        self.T = T
         return self.Us
 
     def setLines(self, lines: LinesTable) -> None:
@@ -98,16 +109,32 @@ class SpeciesNode(_SpeciesNode):
                 lines.s = np.repeat( self.key, lines.nr )
         return super().setLines(lines)
 
+    def getLTEInntensities(self) -> None:
+        """
+        Calculate line intensitiesat LTE.
+        """
+        if self.Ns is None:
+            raise ValueError("composition 'Ns' is not set")
+        elif self.Us is None or self.T is None:
+            raise ValueError("partition function 'Us' is not calculated")
+        I = (
+                (self.Ns / self.Us) 
+                    * self.lines.gk * self.lines.aki * np.exp(-self.lines.ek / self.T)
+                    * (1.24E+03 / self.lines.wavelen)
+            )
+        return self.lines.setLineIntensity(I)
+
 class ElementNode(_SpeciesNode):
     """ 
     A node representing a specific element.
     """
-    __slots__ = 'm', 
+    __slots__ = 'm', 'Nx'
     __name__  = 'ElementNode'
 
     def __init__(self, key: str, m: float, lines: LinesTable = None) -> None:
         super().__init__(key, None, lines)
-        self.m = m
+        self.m  = m
+        self.Nx = None
 
     def keys(self) -> tuple:
         return _SpeciesNode.__slots__ + self.__slots__
@@ -120,15 +147,35 @@ class ElementNode(_SpeciesNode):
     @property
     def Us(self) -> Any:
         """ Last calculated partition function values. """
-        return np.array([ s.Us for s in self._child ])
+        return np.array([ s.Us for s in self.children() ])
+
+    @property
+    def Ns(self) -> Any:
+        """ Present composition values. """
+        return np.array([ s.Ns for s in self.children() ])
     
     @property
     def lines(self) -> LinesTable:
         """ Get the all lines of this element, including that of species. """
         if self._lines is not None:
             return self._lines
-        lines = LinesTable(elem = [], s = [])
+
+        hasI, hasXY = True, True
         for s in self._child:
+            if s.lines is None:
+                continue
+            if s.lines.boltzX is None or s.lines.boltzY is None:
+                hasXY = False
+            if s.lines.I is None:
+                hasI = False 
+
+        lines = LinesTable(elem = [], s = [])
+        if hasI:
+            lines.setLineIntensity([])
+        if hasXY:
+            lines.setBoltzmannXY([], [])
+
+        for s in self.children():
             if s.lines is None:
                 # raise ValueError("species {} has no lines".format(i))
                 continue
@@ -167,6 +214,38 @@ class ElementNode(_SpeciesNode):
         if not isinstance(__spec, SpeciesNode):
             raise TypeError("node must be a 'SpeciesNode'")
         return self.addchild(__spec, None)
+
+    def getLTEComposition(self, Te: float, Ne: float) -> None:
+        """ 
+        Calculate the composition of the species at LTE.
+        """
+        if not np.isscalar(Te):
+            raise TypeError("Te must be a scalar")
+        if not np.isscalar(Ne):
+            raise TypeError("Ne must be a scalar")
+        if self.Nx is None:
+            raise ValueError("composition 'Nx' is not set")
+
+        const = 6.009E+21 * Te**1.5 / Ne
+        
+        # calculate the partition functions of the species
+        Us = [ s.U(Te) for s in self.children() ]
+        Vs = [ s.Vs    for s in self.children() ]
+
+        # calculate composition 
+        fs = [ const * Us[s+1] / Us[s] * np.exp(-Vs[s] / Te) for s in range(self.nspec-1) ]  
+        N0 = self.Nx / (1 + reduce( lambda x,y: (1 + x)*y, reversed(fs) ) )
+        Ns = np.cumprod([1.0, *fs]) * N0
+        
+        for s in range(self.nspec):
+            self.species(s).Ns = Ns[s]
+
+    def getLTEInntensities(self) -> None:
+        """
+        Calculate line intensitiesat LTE.
+        """
+        for s in self.children():
+            s.getLTEInntensities()
 
 def element(key: str, m: float, nspec: int, Vs: Sequence[float], levels: Sequence[LevelsTable], lines: Union[LinesTable, Sequence[LinesTable]], interpolate: bool = True, T: Any = None) -> ElementNode:
     """ 
@@ -231,6 +310,8 @@ def elementTree(__nodes: Iterable[ElementNode]):
     
     root = tree.Node()
     for elem in __nodes:
+        if not isinstance(elem, ElementNode):
+            raise TypeError("input list must contain only 'ElementNode' objects")
         root.addchild( elem, key = elem.key )
     
     return root

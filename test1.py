@@ -1,5 +1,6 @@
 from pylibs_expt._tables import LinesTable, LevelsTable
 from pylibs_expt._elemtree import element, elementTree
+from pylibs_expt._plasma import plasma
 import re
 import numpy as np
 
@@ -64,16 +65,20 @@ def createLevelsTable(file: str, elem: str = ..., sp: int = ...) -> LevelsTable:
     g, E = loadLevels(file)
     return LevelsTable(g, E)
 
-lines   = createLinesTable("percistent_lines.txt", ['Cu', 'Sn'])
+lines   = createLinesTable("percistent_lines.txt", ['cu', 'sn'])
 
 lvl_cu1 = createLevelsTable(f'../data/levels/cu-levels-1.txt')
 lvl_cu2 = createLevelsTable(f'../data/levels/cu-levels-2.txt')
 lvl_sn1 = createLevelsTable(f'../data/levels/sn-levels-1.txt')
 lvl_sn2 = createLevelsTable(f'../data/levels/sn-levels-2.txt')
 
-cu = element('cu', 1.0, 2, [0.0, 1.0], [lvl_cu1, lvl_cu2], lines)
-sn = element('sn', 1.0, 2, [0.0, 1.0], [lvl_sn1, lvl_sn2], lines)
+cu = element('cu', 63.546, 2, [7.726380, 0.0], [lvl_cu1, lvl_cu2], lines)
+sn = element('sn', 118.71, 2, [7.343918, 0.0], [lvl_sn1, lvl_sn2], lines)
 
-root = elementTree([cu, sn])
 
-print( root )
+cusn = plasma('cusn', [cu, sn])
+
+a = cusn(70.0)
+a.setup(1.0, 1.0E+17)
+s = a.getSpectrum(np.linspace(300.0, 600.0, 101), 500)
+print(a.lines)

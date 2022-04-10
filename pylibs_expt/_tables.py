@@ -33,13 +33,6 @@ class LinesTable(table.Table):
 
     Attributes
     ----------
-    u_wavelen: float
-        Unit of wavelength in nanometer. For example, if want the wavelength to be in 
-        angstrom (= 0.1 nm), this must be set to `0.1`.
-    u_Aki: float
-        Unit of transition probability in Hz.
-    u_energy: float
-        Unit of energy in eV.
     I: array of float
         Store intensity values.
     botzX: array of float
@@ -61,7 +54,7 @@ class LinesTable(table.Table):
     """
     __slots__ = (
                     'wavelen', 'aki', 'ek', 'gk', 'elem', 's', 'I', 'boltzX',
-                    'boltzY', 'errAki', '_cols', '_u', 
+                    'boltzY', 'errAki', '_cols', 
                 )
     __name__  = 'LinesTable'
 
@@ -86,8 +79,6 @@ class LinesTable(table.Table):
         self.boltzX  = None
         self.boltzY  = None
         self.errAki  = None
-
-        self._u = [1.0, 1.0, 1.0] # units of wavelength, Aki and energy
 
         self._nc, self._nr  = nc, nr
         self._subset_getter = table.TableSubsetGetter(self)
@@ -274,7 +265,6 @@ class LinesTable(table.Table):
             _slice.setBoltzmannXY(self.boltzX[__i], self.boltzY[__i])
         if self.I is not None:
             _slice.setLineIntensity(self.I[__i])
-        _slice._u = self._u
         return _slice
 
     @property
@@ -285,48 +275,6 @@ class LinesTable(table.Table):
         if self.errAki is None:
             return np.zeros(self.nr)
         return rnd.normal(scale = self.errAki)
-
-    @property
-    def u_wavelen(self) -> float:
-        return self._u[0]
-    
-    @u_wavelen.setter
-    def u_wavelen(self, __value: float) -> None:
-        if __value < 0.0:
-            raise ValueError("value must be positive")
-        self._u[0] = __value
-
-    @property
-    def u_Aki(self) -> float:
-        return self._u[1]
-    
-    @u_Aki.setter
-    def u_Aki(self, __value: float) -> None:
-        if __value < 0.0:
-            raise ValueError("value must be positive")
-        self._u[1] = __value
-
-    @property
-    def u_energy(self) -> float:
-        return self._u[2]
-    
-    @u_energy.setter
-    def u_energy(self, __value: float) -> None:
-        if __value < 0.0:
-            raise ValueError("value must be positive")
-        self._u[2] = __value
-    
-    @property
-    def Wavelen(self) -> Sequence[float]:
-        return self.wavelen * self.u_wavelen
-    
-    @property
-    def Aki(self) -> Sequence[float]:
-        return self.aki * self.u_Aki
-
-    @property
-    def Ek(self) -> Sequence[float]:
-        return self.ek * self.u_energy
 
 class LevelsTable(table.Table):
     """

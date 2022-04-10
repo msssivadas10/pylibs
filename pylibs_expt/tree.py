@@ -67,6 +67,10 @@ class Node:
             return None
         return self._child[key]
 
+    def children(self) -> list:
+        """ Get all the children. """
+        return self._child
+
     @property
     def nchildren(self) -> int:
         """ Number of children. """
