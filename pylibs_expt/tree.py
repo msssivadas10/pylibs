@@ -17,13 +17,17 @@ class Node:
         self._childkey = [] 
     
     def __repr__(self) -> str:
-        return '{}({}, children={})'.format(
-                                                self.__name__,
-                                                ', '.join(
-                                                            map(lambda i: f'{i}={getattr(self, i)}', self.keys())
-                                                         ),
-                                                len(self._child),
-                                           )
+        return '{}({})'.format(
+                                    self.__name__,
+                                    ', '.join(
+                                                list(
+                                                        map(
+                                                                lambda i: f'{i}={getattr(self, i)}', 
+                                                                self.keys()
+                                                           )
+                                                    ) + [ f'children={len(self._child)}' ]
+                                                )
+                                )
     
     def __getitem__(self, __key: str) -> Any:
         if __key not in self.keys():

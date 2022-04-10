@@ -1,4 +1,4 @@
-from typing import Any, Sequence, Union
+from typing import Any, Iterable, Sequence, Union
 from scipy.interpolate import CubicSpline
 import numpy as np
 try:
@@ -19,21 +19,22 @@ class _SpeciesNode(tree.Node):
 
         self.key, self._levels, self._lines = key, levels, lines
         self.setLevels(levels)
-        self.setLines(lines)        
+        self.setLines(lines)   
+
+    def keys(self) -> tuple:
+        return self.__slots__  
         
     def setLevels(self, levels: LevelsTable) -> None:
         """ Set a levels table. """
         if levels is not None:
-            if isinstance(levels, LevelsTable):
-                self.levels = levels
-            elif isinstance(levels, (list, tuple, np.ndarray)):
+            if isinstance(levels, (list, tuple, np.ndarray)):
                 levels = np.asfarray(levels)
                 if np.ndim(levels) != 2:
                     raise TypeError("levels should be a 2D array")
                 elif levels.shape[1] != 2:
                     raise TypeError("levels array should have 2 columns: 'g' and 'value'")
                 levels = LevelsTable(levels[:,0], levels[:,1])
-            else:
+            elif not isinstance(levels, LevelsTable):
                 raise TypeError("levels must be a 'LevelsTable'")
         self._levels = levels
 
@@ -73,8 +74,11 @@ class SpeciesNode(_SpeciesNode):
         # if interpolation is on, make a spline of the partition function values 
         if interpolate:
             T = np.linspace(0.0, 5.0, 101) if T is None else np.asfarray(T)
-            self.pfunc  = CubicSpline( T, self.levels.U(T) )
+            self.pfunc  = CubicSpline( T, self._levels.U(T) )
             # self.levels = None
+
+    def keys(self) -> tuple:
+        return _SpeciesNode.__slots__ + self.__slots__
 
     def U(self, T: Any) -> Any:
         """ 
@@ -98,12 +102,15 @@ class ElementNode(_SpeciesNode):
     """ 
     A node representing a specific element.
     """
-    __slots__ = 'm'
+    __slots__ = 'm', 
     __name__  = 'ElementNode'
 
     def __init__(self, key: str, m: float, lines: LinesTable = None) -> None:
         super().__init__(key, None, lines)
         self.m = m
+
+    def keys(self) -> tuple:
+        return _SpeciesNode.__slots__ + self.__slots__
         
     @property
     def nspec(self) -> int:
@@ -137,9 +144,6 @@ class ElementNode(_SpeciesNode):
         for s in self._child:
             s.freeLines()
 
-    def setLevels(self, levels: LevelsTable) -> None:
-        raise tree.NodeError("cannot set attribute: '_levels'")
-    
     def setLines(self, lines: LinesTable) -> None:
         if lines is not None:
             if not isinstance(lines, LinesTable):
@@ -164,8 +168,11 @@ class ElementNode(_SpeciesNode):
             raise TypeError("node must be a 'SpeciesNode'")
         return self.addchild(__spec, None)
 
-def element(key: str, m: float, nspec: int, Vs: Sequence[float], levels: Sequence[LevelsTable], lines: Union[LinesTable, Sequence[LinesTable]] = None, interpolate: bool = True, T: Any = None) -> ElementNode:
-    """ Create a new element node with species """
+def element(key: str, m: float, nspec: int, Vs: Sequence[float], levels: Sequence[LevelsTable], lines: Union[LinesTable, Sequence[LinesTable]], interpolate: bool = True, T: Any = None) -> ElementNode:
+    """ 
+    Create a new element node with species. 
+    """
+    key = key.lower()
 
     if m < 0.0:
         raise ValueError("atomic mass cannot be negative")
@@ -180,50 +187,52 @@ def element(key: str, m: float, nspec: int, Vs: Sequence[float], levels: Sequenc
     if len(levels) != nspec:
         raise ValueError("incorrect number of energy levels, must be same as the number of species")
 
-    elem = ElementNode(key.lower(), m, None)
-    for s in range(nspec):
-        elem.addspecies( SpeciesNode(s, Vs[s], levels[s], None, interpolate, T) )
-
     if isinstance(lines, LinesTable):
         if lines.s is None:
             raise ValueError("table should have species column ('s')")
 
-        # check if the table has `elem` column else add
+        # check if the table has `elem` column
         if lines.elem is None:
             lines.elem = np.repeat(elem.key, lines.nr)
-        else:
-            keys = np.unique(lines.elem)
-            if len(keys) != 1:
-                raise ValueError("table has lines of multiple elements")
-            elif elem.key != keys[0]:
-                raise ValueError("table has no lines correspond to this element key")
-        elem.setLines( lines )
-    elif min(map(lambda o: isinstance(o, LinesTable), lines)):
+
+        _lines = []
+        for s in range(nspec):
+            _lines.append( lines.slice( ( lines.elem == key ) & ( lines.s == s ) ) )
+        lines = _lines
+
+    else:
+        if len(lines) != nspec:
+            raise ValueError("incorrect number of lines tables, must be same as the number of species")
+        elif False in map(lambda o: isinstance(o, LinesTable), lines):
+            raise TypeError("lines lust be an array of 'LinesTable'")
+
         for s, _lines in enumerate(lines):
 
             # check if the table has `elem` column else add
             if _lines.elem is None:
                 _lines.elem = np.repeat(elem.key, _lines.nr)
-            else:
-                keys = np.unique(_lines.elem)
-                if len(keys) != 1:
-                    raise ValueError("table has lines of multiple elements")
-                elif elem.key != keys[0]:
-                    raise ValueError("table has no lines correspond to this element key")
 
             # check if the table `s` column else add
             if _lines.s is None:
                 _lines.s = np.repeat(s, _lines.nr)
-            else:
-                ss = np.unique(_lines.s)
-                if len(ss) != 1:
-                    raise ValueError("table has lines of multiple species")
-                elif s != ss[0]:
-                    raise ValueError("table has no lines correspond to this species")
-            
-            elem.species(s).setLines(_lines)
-    elif lines is not None:
-        raise TypeError("lines must be a 'LinesTable' or 'list' of 'LinesTable'")
+
+    elem = ElementNode(key, m, None)
+    for s in range(nspec):
+        elem.addspecies( SpeciesNode(s, Vs[s], levels[s], lines[s], interpolate, T) )
 
     return elem
+
+def elementTree(__nodes: Iterable[ElementNode]):
+    """
+    Create a tree of elements. 
+    """
+    if len(__nodes) == 0:
+        raise TypeError("input cannot be empty")
+    
+    root = tree.Node()
+    for elem in __nodes:
+        root.addchild( elem, key = elem.key )
+    
+    return root
+    
  

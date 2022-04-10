@@ -1,5 +1,5 @@
 from pylibs_expt._tables import LinesTable, LevelsTable
-from pylibs_expt.
+from pylibs_expt._elemtree import element, elementTree
 import re
 import numpy as np
 
@@ -34,6 +34,8 @@ def createLinesTable(file: str, select: list = None) -> LinesTable:
 
     acc = np.array([accMap[key] for key in acc])
 
+    sp  = sp.astype('int') - 1
+
     if select is not None:
         elem = np.array( list( map( str.lower, elem ) ) )
 
@@ -62,10 +64,16 @@ def createLevelsTable(file: str, elem: str = ..., sp: int = ...) -> LevelsTable:
     g, E = loadLevels(file)
     return LevelsTable(g, E)
 
-
-lines = createLinesTable("percistent_lines.txt", ['Cu', 'Sn'])
+lines   = createLinesTable("percistent_lines.txt", ['Cu', 'Sn'])
 
 lvl_cu1 = createLevelsTable(f'../data/levels/cu-levels-1.txt')
 lvl_cu2 = createLevelsTable(f'../data/levels/cu-levels-2.txt')
 lvl_sn1 = createLevelsTable(f'../data/levels/sn-levels-1.txt')
 lvl_sn2 = createLevelsTable(f'../data/levels/sn-levels-2.txt')
+
+cu = element('cu', 1.0, 2, [0.0, 1.0], [lvl_cu1, lvl_cu2], lines)
+sn = element('sn', 1.0, 2, [0.0, 1.0], [lvl_sn1, lvl_sn2], lines)
+
+root = elementTree([cu, sn])
+
+print( root )

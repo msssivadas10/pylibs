@@ -7,48 +7,6 @@ try:
 except Exception:
     from . import table
 
-class Line:
-    """
-    Store data for a spectral line.
-    """
-    __slots__ = (
-                    'wavelen', 'aki', 'ek', 'gk', 'elem', 's', 'I', 'boltzX',
-                    'boltzY', 'errAki'
-                )
-
-    def __init__(self, wavelen: float, aki: float, ek: float, gk: float, elem: str = None, s: int = None, I: float = None, boltzX: float = None, boltzY: float = None, errAki: float = None) -> None:
-        self.wavelen = wavelen
-        self.aki     = aki 
-        self.ek      = ek 
-        self.gk      = gk 
-        self.elem    = elem
-        self.s       = s 
-        self.I       = I
-        self.boltzX  = boltzX
-        self.boltzY  = boltzY
-        self.errAki  = errAki
-
-    def __repr__(self) -> str:
-        s = [
-                f'wavelen={self.wavelen:.3f} nm',
-                f'aki={self.aki:.3e} Hz',
-                f'ek={self.ek:.3f} eV',
-                f'gk={self.gk}',
-            ]
-        if self.elem is not None:
-            s.append( f"elem='{self.elem}'" )
-        if self.s is not None:
-            s.append( f"s={self.s}" )
-        if self.I is not None:
-            s.append( f"I={self.I:.3e}" )
-        if self.boltzX is not None:
-            s.append( f"boltzX={self.boltzX:.3e}" )
-        if self.boltzY is not None:
-            s.append( f"boltzY={self.boltzY:.3e}" )
-        if self.errAki is not None:
-            s.append( f"errAki={self.errAki:.3e} %" )
-        return 'Line({})'.format(', '.join(s))
-
 class LinesTable(table.Table):
     """
     A table storing information about spectral lines. This include the wavelength (in nm), 
@@ -133,7 +91,10 @@ class LinesTable(table.Table):
 
         self._nc, self._nr  = nc, nr
         self._subset_getter = table.TableSubsetGetter(self)
-        self.table_row      = Line
+        self.table_row      = namedtuple(
+                                            'Line',
+                                            ['wavelen', 'aki', 'ek', 'gk', 'elem', 's', 'I', 'boltzX', 'boltzY', 'errAki']
+                                        )
 
         # if elements keys are given, add column
         if elem is not None:
@@ -148,6 +109,24 @@ class LinesTable(table.Table):
             self.setAkiErrors(errAki)
         else:
             self.setAkiErrors( np.zeros(self.nr) )
+
+    def r(self, __i: int) -> tuple:
+        o = {
+                'wavelen' : None, 
+                'aki'     : None, 
+                'ek'      : None, 
+                'gk'      : None, 
+                'elem'    : None, 
+                's'       : None, 
+                'I'       : None, 
+                'boltzX'  : None, 
+                'boltzY'  : None, 
+                'errAki'  : None,
+                **{
+                        __col: self[__col][__i] for __col in self.colnames
+                  }
+            }
+        return self.table_row(**o)
 
     def _arrangeColunmNames(self) -> None:
         """
@@ -177,7 +156,7 @@ class LinesTable(table.Table):
             raise table.TableError("columns must be 1D arrays")
         elif len(__x) != self.nr:
             raise table.TableError("all coulmns should have the same size")
-        elif not min(map(lambda o: isinstance(o, str), __x)):
+        elif False in map(lambda o: isinstance(o, str), __x):
             raise TypeError("element key must be 'str'")
         self.elem = np.array(__x).astype('str')
         self._cols.append('elem')
@@ -273,6 +252,30 @@ class LinesTable(table.Table):
 
     def _colnames(self) -> tuple:
         return self._cols
+
+    def slice(self, __i: Any) -> object:
+        """ Get a slice of the table. """
+        if np.isscalar(__i):
+            raise TypeError("argument must be an array")
+        _slice = LinesTable(
+                                self.wavelen[__i],
+                                self.aki[__i],
+                                self.ek[__i],
+                                self.gk[__i],
+                                None, 
+                                None,
+                                self.errAki[__i],
+                           )
+        if self.elem is not None:
+            _slice.setElementKey(self.elem[__i])
+        if self.s is not None:
+            _slice.setSpeciesKey(self.s[__i])
+        if self.boltzX is not None and self.boltzY is not None:
+            _slice.setBoltzmannXY(self.boltzX[__i], self.boltzY[__i])
+        if self.I is not None:
+            _slice.setLineIntensity(self.I[__i])
+        _slice._u = self._u
+        return _slice
 
     @property
     def randomErrorAki(self) -> Sequence[float]:
