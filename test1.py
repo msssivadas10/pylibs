@@ -1,5 +1,7 @@
-from pylibs_expt.objects import *
+from pylibs_expt._tables import LinesTable, LevelsTable
+from pylibs_expt.
 import re
+import numpy as np
 
 def createLinesTable(file: str, select: list = None) -> LinesTable:
     def loadLines(file: str) -> list:
@@ -23,7 +25,14 @@ def createLinesTable(file: str, select: list = None) -> LinesTable:
                     lines.append( list( m.groups() ) )
         return lines
 
+    accMap = {
+                'AAA': 0.3, 'AA': 1.0, 'A+': 2.0, 'A': 3.0, 'B+': 7.0, 'B': 10.0,
+                'C+': 18.0, 'C': 25.0, 'D+': 40.0, 'D': 50.0, 'E': 100.0,
+             }
+
     elem, sp, x, Aki, acc, Ei, Ek, gi, gk = np.array(loadLines(file)).T
+
+    acc = np.array([accMap[key] for key in acc])
 
     if select is not None:
         elem = np.array( list( map( str.lower, elem ) ) )
@@ -51,11 +60,12 @@ def createLevelsTable(file: str, elem: str = ..., sp: int = ...) -> LevelsTable:
         return np.array(levels, 'float').T
 
     g, E = loadLevels(file)
-    return LevelsTable(g, E, sp = sp, elem = elem)
+    return LevelsTable(g, E)
 
 
 lines = createLinesTable("percistent_lines.txt", ['Cu', 'Sn'])
 
-lvl_cu1 = createLevelsTable(f'../data/levels/cu-levels-1.txt', 'Cu', 1)
-
-print(lvl_cu1.elem)
+lvl_cu1 = createLevelsTable(f'../data/levels/cu-levels-1.txt')
+lvl_cu2 = createLevelsTable(f'../data/levels/cu-levels-2.txt')
+lvl_sn1 = createLevelsTable(f'../data/levels/sn-levels-1.txt')
+lvl_sn2 = createLevelsTable(f'../data/levels/sn-levels-2.txt')
