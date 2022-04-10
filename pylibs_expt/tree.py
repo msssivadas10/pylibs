@@ -12,7 +12,7 @@ class Node:
     __slots__ = '_child', '_childkey'
     __name__  = 'Node'
 
-    def __init__(self) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         self._child    = []
         self._childkey = [] 
     
