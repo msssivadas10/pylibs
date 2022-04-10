@@ -12,19 +12,38 @@ class Node:
     __slots__ = '_child', '_childkey'
     __name__  = 'Node'
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self) -> None:
         self._child    = []
         self._childkey = [] 
     
     def __repr__(self) -> str:
-        return 'Node(children={})'.format(len(self._child))
+        return '{}({}, children={})'.format(
+                                                self.__name__,
+                                                ', '.join(
+                                                            map(lambda i: f'{i}={getattr(self, i)}', self.keys())
+                                                         ),
+                                                len(self._child),
+                                           )
+    
+    def __getitem__(self, __key: str) -> Any:
+        if __key not in self.keys():
+            raise NodeError("node do not have an attribute '{}'".format(__key))
+        return getattr(self, __key)
+
+    def __setitem__(self, __key: str, __value: Any) -> Any:
+        if __key not in self.keys():
+            raise NodeError("node do not have an attribute '{}'".format(__key))
+        return setattr(self, __key, __value)
 
     def keys(self) -> tuple:
         """ Return a tuple containing attribute names. """
-        ...
+        return tuple()
 
     def addchild(self, child: object, key: str = None) -> None:
-        """ Add a child node. """
+        """ 
+        Add a child node. If given `key` is used to access the child node. 
+        Otherwise, an integer index is used. 
+        """
         if key is None:
             key = len(self._child)
         if not isinstance(child, Node):
@@ -43,6 +62,11 @@ class Node:
         if not -1 < key < len(self._child):
             return None
         return self._child[key]
+
+    @property
+    def nchildren(self) -> int:
+        """ Number of children. """
+        return len(self._child)
 
 def node(name: str, attrs: Iterable[str], namespace: dict = {}) -> Type[Node]:
     """
@@ -70,15 +94,6 @@ def node(name: str, attrs: Iterable[str], namespace: dict = {}) -> Type[Node]:
     def _keys(self: Node) -> tuple:
         return self.__slots__
 
-    def _repr(self: Node) -> str:
-        return '{}({}, children={})'.format(
-                                                self.__name__,
-                                                ', '.join(
-                                                            map(lambda i: f'{i}={getattr(self, i)}', self.keys())
-                                                         ),
-                                                len(self._child),
-                                           )
-
     return type(
                     name,
                     (Node, ),
@@ -86,11 +101,7 @@ def node(name: str, attrs: Iterable[str], namespace: dict = {}) -> Type[Node]:
                         '__init__' : _init,
                         '__slots__': attrs,
                         '__name__' : name,
-                        '__repr__' : _repr,
                         'keys'     : _keys,
                         **namespace 
                     }
                 )
-                
-
-
