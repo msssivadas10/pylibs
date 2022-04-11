@@ -1,11 +1,9 @@
-from typing import Any, Type
 import numpy as np
-try:
-    import _tables as tbl
-    import _elemtree as et
-except Exception:
-    from . import _tables as tbl
-    from . import _elemtree as et
+from typing import Any, Type
+from pylibs.objects import LinesTable, elementTree
+from pylibs.objects.tree import Node
+import pylibs.objects.table as table
+
 
 class Plasma:
     """
@@ -15,7 +13,7 @@ class Plasma:
     __name__  = ''
 
     def __init__(self, *args, **kwargs) -> None:
-        self.comp : et.tree.Node
+        self.comp : Node
         self.Te   : float
         self.Ne   : float
 
@@ -33,7 +31,7 @@ class Plasma:
         ...
 
     @property
-    def lines(self) -> tbl.LinesTable:
+    def lines(self) -> LinesTable:
         """ Get a table of all lines in the components. """
         # go through the tree to check if the tables has optional columns
         hasI, hasXY = True, True
@@ -47,7 +45,7 @@ class Plasma:
                 hasXY = False
             lines.append(o)
         
-        o = tbl.LinesTable(elem = [], s = [])
+        o = LinesTable(elem = [], s = [])
         if hasI:
             o.setLineIntensity([])
         if hasXY:
@@ -97,7 +95,7 @@ class Plasma:
         for __elem in self.comp.children():
             __elem.getLTEInntensities()
 
-    def getSpectrum(self, x: Any, res: float = 500) -> tbl.table.Table:
+    def getSpectrum(self, x: Any, res: float = 500) -> table.Table:
         """
         Generate the LTE plasma spectrum at the specified conditions.
         """
@@ -118,7 +116,7 @@ class Plasma:
         spec[ 'y' ] = total
         spec[ 'x' ] = x
 
-        tb_spectrum = tbl.table.table(
+        tb_spectrum = table.table(
                                         '{}_spectrum'.format(self.__name__),
                                         list( spec.keys() )
                                      )
@@ -130,7 +128,7 @@ def plasma(name: str, comp: list) -> Type[Plasma]:
     Create a specific plasma class.
     """
     # create a tree from the components
-    ct     = et.elementTree(comp)
+    ct     = elementTree(comp)
     _slots = tuple([ o.key for o in ct.children() ]) 
 
     def _init(self: Plasma, *args, **kwargs) -> None:

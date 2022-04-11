@@ -1,18 +1,14 @@
+import numpy as np
 from typing import Any, Iterable, Sequence, Union
 from scipy.interpolate import CubicSpline
 from functools import reduce
-import numpy as np
-try:
-    import tree
-    from _tables import LevelsTable, LinesTable
-except Exception:
-    from . import tree
-    from . import _tables
-    LevelsTable, LinesTable = _tables.LevelsTable, _tables.LinesTable
+from pylibs.objects._tables import LinesTable, LevelsTable
+from pylibs.objects.tree import Node
 
-
-class _SpeciesNode(tree.Node):
-    """ Base class for species or element nodes. """
+class _SpeciesNode(Node):
+    """ 
+    Base class for species or element nodes. 
+    """
     __slots__ = 'key', '_lines', '_levels', 
 
     def __init__(self, key: Any, levels: LevelsTable = None, lines: LinesTable = None) -> None:
@@ -64,7 +60,42 @@ class _SpeciesNode(tree.Node):
 
 class SpeciesNode(_SpeciesNode):
     """ 
-    A node representing a species of some element.
+    A node representing a species of some element. Each species will have its 
+    own ionisation energy, spectral lines etc. These data can be stored in a 
+    :class:`SpeciesNode` and connected to a node representing the element.
+
+    Parameters
+    ----------
+    key: int
+        Key to identify this species.
+    Vs: float
+        Ionisation energy of this species (in units of eV).
+    levels: LevelsTable
+        A table of energy of levels.
+    lines: LinesTable
+        A table of spectral lines data.
+    interpolate: bool, optional
+        If set true, then use an interpolation table to calculate the partition 
+        function. Otherwise, use the energy levels data.
+    T: array_like, optional
+        An array of temperature values to pre-compute the partition function values. 
+        Default is 101 points in [0,5]. 
+
+    Attributes
+    ----------
+    Ns: float
+        Fraction of atoms of this species in some multi-element mixture.
+    Us: float
+        Last computed value of the partition function will be saved here.
+    T: float
+        Temperature (in eV) used to compute the partition function last time.
+    pfunc: CubicSpline, None
+        If interpolation is set, store the partition function table.
+    lines: LinesTable
+        Table of spectral lines (getter).
+    levels: LevelsTable
+        Table of energy levels (getter).
+
     """
     __slots__ = 'Vs', 'Ns', 'Us', 'pfunc', 'T'
     __name__  = 'SpeciesNode'
@@ -126,7 +157,23 @@ class SpeciesNode(_SpeciesNode):
 
 class ElementNode(_SpeciesNode):
     """ 
-    A node representing a specific element.
+    A node representing a specific element. An element node will have some species 
+    nodes connected to it.
+
+    Parameters
+    ----------
+    key: str
+        Key to specify this element. Can be the chemical symbol or its name.
+    m: float
+        Atomic mass in amu.
+    lines: LinesTable, optional
+        Table of spectral lines (all species).
+    
+    Attributes
+    ----------
+    Nx: float
+        Number of atoms of this element in some mixture.
+
     """
     __slots__ = 'm', 'Nx'
     __name__  = 'ElementNode'
@@ -250,6 +297,33 @@ class ElementNode(_SpeciesNode):
 def element(key: str, m: float, nspec: int, Vs: Sequence[float], levels: Sequence[LevelsTable], lines: Union[LinesTable, Sequence[LinesTable]], interpolate: bool = True, T: Any = None) -> ElementNode:
     """ 
     Create a new element node with species. 
+
+    Parameters
+    ----------
+    key: str
+        Key used to specify the element.
+    m: float
+        Atomic mass in amu.
+    nspec: int 
+        Number of species of this element.
+    Vs: sequence of float
+        Ionization energy in eV. Must be a sequence of length `nspec`.
+    levels: sequence of LevelsTable
+        Energy levels of the species. Must be a sequence of length `nspec`.
+    lines: LinesTable, sequence of LinesTable
+        Spectral lines of this element. If a sequence is given, must have length 
+        `nspec` and each table correspond to a species, in their order.
+    interpolate: bool, optional
+        If set true (default), use interpolation table to calculate partition 
+        function.
+    T: array_like, optional
+        Array of temperature values to create interpolation table.
+
+    Returns
+    -------
+    node: ElementNode
+        A tree representing element, with each branch correspond to a species.
+    
     """
     key = key.lower()
 
@@ -303,12 +377,13 @@ def element(key: str, m: float, nspec: int, Vs: Sequence[float], levels: Sequenc
 
 def elementTree(__nodes: Iterable[ElementNode]):
     """
-    Create a tree of elements. 
+    Create a tree of elements. The input must be an array of :class:`ElementNode` 
+    objects and returns a :class:`Node` object with each element as branches. 
     """
     if len(__nodes) == 0:
         raise TypeError("input cannot be empty")
     
-    root = tree.Node()
+    root = Node()
     for elem in __nodes:
         if not isinstance(elem, ElementNode):
             raise TypeError("input list must contain only 'ElementNode' objects")

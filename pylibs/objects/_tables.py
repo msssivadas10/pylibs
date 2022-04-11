@@ -2,10 +2,7 @@ from collections import namedtuple
 from typing import Any, Sequence
 import numpy as np
 import numpy.random as rnd
-try:
-    import table
-except Exception:
-    from . import table
+import pylibs.objects.table as table
 
 class LinesTable(table.Table):
     """
@@ -278,7 +275,8 @@ class LinesTable(table.Table):
 
 class LevelsTable(table.Table):
     """
-    A table storing the energy level data.
+    A table storing the energy level data. This table will have two columns: 
+    weight of the level `g` and its value in eV `value`. 
     """
     __slots__ = 'g', 'value', '_cols', 'attrs', 
     __name__  = 'LevelsTable'

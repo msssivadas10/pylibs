@@ -1,8 +1,8 @@
-from pylibs_expt._tables import LinesTable, LevelsTable
-from pylibs_expt._elemtree import element, elementTree
-from pylibs_expt._plasma import plasma
 import re
 import numpy as np
+from pylibs.objects import LinesTable, LevelsTable, element
+from pylibs.plasma import plasma
+
 
 def createLinesTable(file: str, select: list = None) -> LinesTable:
     def loadLines(file: str) -> list:
