@@ -1,13 +1,30 @@
-import numpy as np
 from typing import Any, Type
 from pylibs.objects import LinesTable, elementTree
 from pylibs.objects.tree import Node
 import pylibs.objects.table as table
+import numpy as np
+
+class PlasmaError(Exception):
+    """ Base class of exceptions used by plasma objects. """
 
 
 class Plasma:
-    """
-    A plasma object.
+    r"""
+    Base class for all plasma classes. A `Plasma` object represents a plasma at LTE. 
+    This object can be then used to get the composition, plasma spectrum etc. at 
+    local thermal equilibrium (LTE).
+
+    Parameters
+    ----------
+    *args, **kwargs: Any
+        Input parameters to initialise the plasma. Usually, they will be the composition 
+        of plasma components as weight percentages.
+
+    See Also
+    --------
+    table:
+        Function to create a plasma class.
+
     """
     __slots__ = 'comp', 'Te', 'Ne', 
     __name__  = ''
@@ -19,20 +36,83 @@ class Plasma:
 
     def __repr__(self) -> str:
         return '{}({})'.format(
-                                self.__name__,
-                                ', '.join(
-                                            map( 
-                                                    lambda o: f'{o[0]}={o[1]}', self.composition.items() 
-                                                )
-                                          )
-                            )
+                                    self.__name__,
+                                    ', '.join(
+                                                map( 
+                                                        lambda o: f'{o[0]}={o[1]}', self.composition.items() 
+                                                    )
+                                            )
+                               )
     
     def _comp(self) -> tuple:
         ...
 
+    def setup(self, Te: float = ..., Ne: float = ...) -> None:
+        r""" 
+        Set the plasma conditions. This will initialise a plasma and calculate 
+        the composition and line intensities at LTE.
+        """
+        if Te is not ... :
+            if not Te > 0.0:
+                raise ValueError("temperature 'Te' must be positive")
+            self.Te = Te
+        if Ne is not ... : 
+            if not Ne > 0.0:
+                raise ValueError("electron number density 'Ne' must be positive")
+            self.Ne = Ne
+        self._getComposition()
+        self._getIntensity()
+
+    def _getComposition(self) -> None:
+        """ 
+        Calculate the composition at LTE. 
+        """
+        for __elem in self.comp.children():
+            __elem.getLTEComposition(self.Te, self.Ne)
+    
+    def _getIntensity(self) -> None:
+        """
+        Calculate intensities at LTE.
+        """
+        for __elem in self.comp.children():
+            __elem.getLTEInntensities()
+
+    def getSpectrum(self, x: Any, res: float = 500) -> table.Table:
+        r"""
+        Generate the LTE plasma spectrum at the specified conditions.
+        """
+        if self.Te is None or self.Ne  is None:
+            raise PlasmaError("plasma is not setup.")
+            
+        def gaussian(x: Any) -> Any:
+            return np.exp(-4*np.log(2) * x**2)
+
+        # sampling the spectrum using a gaussian shape
+        x           = np.asfarray(x).flatten()
+        spec, total = {'x': None, 'y': None}, np.zeros_like(x)
+        for __elem in self.comp.children():
+            for __s in __elem.children():
+                w      = __s.lines.wavelen / res
+                I      = gaussian( (x[:,None] -__s.lines.wavelen) / w ) @ __s.lines.I
+                total += I
+
+                spec[ '{}_{}'.format(__elem.key, __s.key) ] = I
+        
+        spec[ 'y' ] = total
+        spec[ 'x' ] = x
+
+        tb_spectrum = table.table(
+                                        '{}_spectrum'.format(self.__name__),
+                                        list( spec.keys() )
+                                 )
+
+        return tb_spectrum( **spec )
+    
     @property
     def lines(self) -> LinesTable:
-        """ Get a table of all lines in the components. """
+        r""" 
+        Get a table of all lines in the components. 
+        """
         # go through the tree to check if the tables has optional columns
         hasI, hasXY = True, True
 
@@ -67,64 +147,29 @@ class Plasma:
                                 lambda o: (o, getattr(self, o)), self.components
                            )
                    )
-
-    def setup(self, Te: float = ..., Ne: float = ...) -> None:
-        """ Set the plasma conditions. """
-        if Te is not ... :
-            if not Te > 0.0:
-                raise ValueError("temperature 'Te' must be positive")
-            self.Te = Te
-        if Ne is not ... : 
-            if not Ne > 0.0:
-                raise ValueError("electron number density 'Ne' must be positive")
-            self.Ne = Ne
-        self._getComposition()
-        self._getIntensity()
-
-    def _getComposition(self) -> None:
-        """ 
-        Calculate the composition at LTE. 
-        """
-        for __elem in self.comp.children():
-            __elem.getLTEComposition(self.Te, self.Ne)
     
-    def _getIntensity(self) -> None:
-        """
-        Calculate intensities at LTE.
-        """
+    @property
+    def N(self) -> Any:
+        """ Composition matrix. """
+        if self.Te is None or self.Ne  is None:
+            raise PlasmaError("plasma is not setup.")
+        N = []
         for __elem in self.comp.children():
-            __elem.getLTEInntensities()
-
-    def getSpectrum(self, x: Any, res: float = 500) -> table.Table:
-        """
-        Generate the LTE plasma spectrum at the specified conditions.
-        """
-        def gaussian(x: Any) -> Any:
-            return np.exp(-4*np.log(2) * x**2)
-
-        # sampling the spectrum using a gaussian shape
-        x           = np.asfarray(x).flatten()
-        spec, total = {'x': None, 'y': None}, np.zeros_like(x)
-        for __elem in self.comp.children():
+            Ns = []
             for __s in __elem.children():
-                w      = __s.lines.wavelen / res
-                I      = gaussian( (x[:,None] -__s.lines.wavelen) / w ) @ __s.lines.I
-                total += I
-
-                spec[ '{}_{}'.format(__elem.key, __s.key) ] = I
+                Ns.append( __s.Ns )
+            N.append( Ns )
         
-        spec[ 'y' ] = total
-        spec[ 'x' ] = x
-
-        tb_spectrum = table.table(
-                                        '{}_spectrum'.format(self.__name__),
-                                        list( spec.keys() )
-                                     )
-
-        return tb_spectrum( **spec )
+        nelem, ns = len(N), max( map( len, N ) )
+        
+        Nmatrix   = np.zeros( (nelem, ns) )
+        for i in range(nelem):
+            for j in range( len(N[i]) ):
+                Nmatrix[i,j] = N[i][j]
+        return Nmatrix
             
 def plasma(name: str, comp: list) -> Type[Plasma]:
-    """
+    r"""
     Create a specific plasma class.
     """
     # create a tree from the components

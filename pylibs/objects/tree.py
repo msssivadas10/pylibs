@@ -7,7 +7,13 @@ class NodeError(Exception):
 class Node:
     """
     A node of a tree. Every node will have a set of attributes and some 
-    child nodes.
+    child nodes. 
+
+    Parameters
+    ----------
+    *args, **kwargs: 
+        Values of the attributes of a node.
+    
     """
     __slots__ = '_child', '_childkey'
     __name__  = 'Node'
@@ -26,8 +32,8 @@ class Node:
                                                                 self.keys()
                                                            )
                                                     ) + [ f'children={len(self._child)}' ]
-                                                )
-                                )
+                                              )
+                              )
     
     def __getitem__(self, __key: str) -> Any:
         if __key not in self.keys():
@@ -79,6 +85,21 @@ class Node:
 def node(name: str, attrs: Iterable[str], namespace: dict = {}) -> Type[Node]:
     """
     Create a subclass of :class:`Node` to store specific values.
+
+    Parameters
+    ----------
+    name: str
+        Name of the new :class:`Node` type.
+    attrs: sequence of str
+        A non-empty sequence of attribute names. 
+    namespace: dict
+        Extra things to add to the namespace of new node.
+
+    Returns
+    -------
+    node: Node
+        New node type.
+        
     """
     if len(attrs) < 1:
         raise TypeError("attrs cannot be empty")

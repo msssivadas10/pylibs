@@ -5,7 +5,7 @@ import numpy.random as rnd
 import pylibs.objects.table as table
 
 class LinesTable(table.Table):
-    """
+    r"""
     A table storing information about spectral lines. This include the wavelength (in nm), 
     transition probability :math:`A_{ki}` and its uncertainity, value and weight of the 
     upper level of transition :math:`E_k` and :math:`g_k`, and the keys for the element or 
@@ -36,13 +36,6 @@ class LinesTable(table.Table):
         Store the X coordinates of the Boltzmann plot.
     botzY: array of float
         Store the Y coordinates of the Boltzmann plot.
-    
-    Notes
-    -----
-    To get the values of wavelength, transition probability or energy in default units 
-    (nm, Hz and eV respectively) use the lowercased names and for their values in the 
-    specified units use titlecased names (e.g., `wavelen` is in nanometers, but `Wavelen` 
-    is in the units specified by user).
 
     Examples
     --------
@@ -117,7 +110,7 @@ class LinesTable(table.Table):
         return self.table_row(**o)
 
     def _arrangeColunmNames(self) -> None:
-        """
+        r"""
         Arrange the column names so that the order would be `wavelen`, `aki`, `ek`, `gk`, 
         `elem`, `s`, `errAki`, `I`, `boltzX`, `boltzY`.
         """
@@ -128,7 +121,7 @@ class LinesTable(table.Table):
         self._cols = cols
 
     def setElementKey(self, __x: Sequence[str]) -> None:
-        """
+        r"""
         Set element keys for lines. This adds a new column `elem` to the table. Once 
         set, this column cannot be changed.
 
@@ -152,7 +145,7 @@ class LinesTable(table.Table):
         self._arrangeColunmNames()
 
     def setSpeciesKey(self, __x: Sequence[int]) -> None:
-        """
+        r"""
         Set species keys for lines. This adds a new column `s` to the table. Once 
         set, this column cannot be changed.
 
@@ -174,7 +167,7 @@ class LinesTable(table.Table):
         self._arrangeColunmNames()
 
     def setAkiErrors(self, __x: Sequence[float]) -> None:
-        """
+        r"""
         Set accuracy of :math:`A_{ki}` for lines. This adds a new column `elem` to the 
         table. Once set, this column cannot be changed.
 
@@ -198,7 +191,7 @@ class LinesTable(table.Table):
         self._arrangeColunmNames()
 
     def setLineIntensity(self, __x: Sequence[float]) -> None:
-        """
+        r"""
         Set intensity of the lines. This adds a new column `I` to the table.
 
         Parameters
@@ -217,7 +210,7 @@ class LinesTable(table.Table):
         self.I = np.asfarray(__x)
 
     def setBoltzmannXY(self, __x: Sequence[float], __y: Sequence[float]) -> None:
-        """
+        r"""
         Set Boltzmann plane coordinates of the lines. This adds two new columns `boltzX` 
         and `boltzY` to the table.
 
@@ -242,7 +235,7 @@ class LinesTable(table.Table):
         return self._cols
 
     def slice(self, __i: Any) -> object:
-        """ Get a slice of the table. """
+        r""" Get a slice of the table. """
         if np.isscalar(__i):
             raise TypeError("argument must be an array")
         _slice = LinesTable(
@@ -266,7 +259,7 @@ class LinesTable(table.Table):
 
     @property
     def randomErrorAki(self) -> Sequence[float]:
-        """
+        r"""
         Generate a random error in :math:`A_{ki}` values (in percent).
         """
         if self.errAki is None:
@@ -274,9 +267,17 @@ class LinesTable(table.Table):
         return rnd.normal(scale = self.errAki)
 
 class LevelsTable(table.Table):
-    """
+    r"""
     A table storing the energy level data. This table will have two columns: 
     weight of the level `g` and its value in eV `value`. 
+
+    Parameters
+    ----------
+    g: array_like
+        Weights for the levels.
+    value: array_like
+        Value of the level in eV.
+
     """
     __slots__ = 'g', 'value', '_cols', 'attrs', 
     __name__  = 'LevelsTable'

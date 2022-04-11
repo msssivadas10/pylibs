@@ -80,5 +80,5 @@ cusn = plasma('cusn', [cu, sn])
 
 a = cusn(70.0)
 a.setup(1.0, 1.0E+17)
-s = a.getSpectrum(np.linspace(300.0, 600.0, 101), 500)
-print(a.lines)
+# s = a.getSpectrum(np.linspace(300.0, 600.0, 101), 500)
+print(a.N)
