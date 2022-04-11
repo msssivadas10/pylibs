@@ -301,7 +301,7 @@ def elementTree_fromDict(__dict: dict, interpolate: bool = True, T: Any = None) 
         Root node of the element tree.
 
     """
-    def species_fromDict(__o: dict) -> SpeciesNode:
+    def species_fromDict(__o: dict, elem: str) -> SpeciesNode:
         """ A species node from dict. """
         data = {}
         for key, value in __o.items():
@@ -321,6 +321,7 @@ def elementTree_fromDict(__dict: dict, interpolate: bool = True, T: Any = None) 
             elif key == 'lines':
                 if not isinstance(value, LinesTable):
                     raise TypeError("lines must be a 'LinesTable'")
+
                 data[ 'lines' ] = value
             else:
                 raise KeyError("invalid key: '{}'".format(key))
@@ -329,6 +330,10 @@ def elementTree_fromDict(__dict: dict, interpolate: bool = True, T: Any = None) 
         for key in [ 'key', 'Vs', 'levels', 'lines' ]:
             if key not in data.keys():
                 raise KeyError("cannot find field: '{}'".format(key))
+
+        # filter lines
+        lines           = data[ 'lines' ]
+        data[ 'lines' ] = lines.slice( ( lines.elem == elem ) & ( lines.s == data[ 'key' ] ) )
 
         data[ 'interpolate' ] = interpolate
         data[ 'T' ]           = T
@@ -381,7 +386,7 @@ def elementTree_fromDict(__dict: dict, interpolate: bool = True, T: Any = None) 
         e = ElementNode( **data )
         for s in range( len( species ) ):
             species[s][ 'key' ] = s
-            e.addspecies( species_fromDict( species[s] ) )
+            e.addspecies( species_fromDict( species[s], data[ 'key' ] ) )
 
         return e
 

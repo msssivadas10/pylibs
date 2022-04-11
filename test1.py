@@ -3,7 +3,7 @@ from pylibs.objects import linestable, levelstable, loadtxt
 from pylibs.plasma import plasma
 
 
-def createLinesTable(file: str, select: list = None):
+def loadlines(file: str, select: list = None):
     accMap = {
                 'AAA': 0.3, 'AA': 1.0, 'A+': 2.0, 'A': 3.0, 'B+': 7.0, 'B': 10.0,
                 'C+': 18.0, 'C': 25.0, 'D+': 40.0, 'D': 50.0, 'E': 100.0,
@@ -36,7 +36,7 @@ def createLinesTable(file: str, select: list = None):
 
         x, Aki, Ek, gk, elem, sp, acc = x[i], Aki[i], Ek[i], gk[i], elem[i], sp[i], acc[i]
 
-    return np.stack([x, Aki, Ek, gk, acc], axis = -1), sp, elem
+    return linestable( np.stack([x, Aki, Ek, gk, acc], axis = -1), sp, elem )
 
 def levels(x: str):
     """ Energy levels """
@@ -49,46 +49,50 @@ def levels(x: str):
                                )
                       )
 
+def main():
+    lines = loadlines("percistent_lines.txt", ['cu', 'sn'] )
 
-lines = linestable( *createLinesTable("percistent_lines.txt", ['cu', 'sn']) )
+    t = {
+            'cu': {
+                    'm'      : 63.546,
+                    'species': [
+                                    {
+                                        'Vs'    : 7.726380,
+                                        'levels': levels('cu-1'),
+                                        'lines' : lines,
+                                    },
+                                    {
+                                        'Vs'    : 20.29239,
+                                        'levels': levels('cu-2'),
+                                        'lines' : lines,
+                                    },
+                            ]
+                },
+            'sn': {
+                    'm'      : 118.710,
+                    'species': [
+                                    {
+                                        'Vs'    : 7.343918,
+                                        'levels': levels('sn-1'),
+                                        'lines' : lines,
+                                    },
+                                    {
+                                        'Vs'    : 14.63307,
+                                        'levels': levels('sn-2'),
+                                        'lines' : lines,
+                                    }
+                            ]
+                },
+        }
 
-t = {
-        'cu': {
-                'm'      : 63.546,
-                'species': [
-                                {
-                                    'Vs'    : 7.726380,
-                                    'levels': levels('cu-1'),
-                                    'lines' : lines,
-                                },
-                                {
-                                    'Vs'    : 20.29239,
-                                    'levels': levels('cu-2'),
-                                    'lines' : lines,
-                                },
-                           ]
-              },
-        'sn': {
-                'm'      : 118.710,
-                'species': [
-                                {
-                                    'Vs'    : 7.343918,
-                                    'levels': levels('sn-1'),
-                                    'lines' : lines,
-                                },
-                                {
-                                    'Vs'    : 14.63307,
-                                    'levels': levels('sn-2'),
-                                    'lines' : lines,
-                                }
-                           ]
-              },
-    }
+    cusn = plasma('cusn', t)
 
-cusn = plasma('cusn', t)
+    a = cusn(70.0)
 
-a = cusn(70.0)
+    a.setup(1.0, 1.0E+17)
 
-a.setup(1.0, 1.0E+17)
+    # s = a.getSpectrum(np.linspace(300.0, 600.0, 101), 500)
 
-# s = a.getSpectrum(np.linspace(300.0, 600.0, 101), 500)
+
+if __name__ == '__main__':
+    main()
