@@ -29,5 +29,6 @@ from pylibs.objects._tables import LinesTable, LevelsTable
 from pylibs.objects._elemtree import SpeciesNode, ElementNode
 from pylibs.objects._helpers import element, elementTree, elementTree_fromList, elementTree_fromDict
 from pylibs.objects._helpers import linestable, levelstable
+from pylibs.objects._helpers import loadtxt
 
 __all__ = ['table', 'tree', ]

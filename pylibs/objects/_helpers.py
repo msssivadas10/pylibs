@@ -398,7 +398,99 @@ def elementTree_fromDict(__dict: dict, interpolate: bool = True, T: Any = None) 
     
     return elementTree_fromList( elem )
 
+# =========================================================================================
+# Functions for file reading
+# =========================================================================================
+
+def loadtxt(file: str, delim: str = ',', comment: str = '#', regex: str = None, ignore: bool = True, convert: Any = False) -> Any:
+    """
+    Load data from a text file. Can be used to read data from delimited text files or data 
+    stored in a specific pattern. 
+
+    Parameters
+    ----------
+    file: str
+        Path to the file to read. 
+    delim: str, optional
+        Delimiter to use. Default is `,`.
+    comment: str, optional
+        Charecter used to comment. Default is `#`.
+    regex: str, optional
+        If a string is given use it as a regular expression pattern. This pattern is used to 
+        parse lines in the file. 
+    ignore: bool, optional
+        If true, then ignore any non-matching lines or rows of incorrect size (default).
+    convert: str, list, bool
+        If true, try to convert to a float ndarray. If it is a list, then its size must be same 
+        as the number of columns and each entry should be a typename. If different types, then 
+        the output is transposed. If a string is used, its charecters will be mapped to a type 
+        as `{f: float, d: int, s: str, c: complex}`.
+
+    Returns
+    -------
+    data: list, numpy.ndarray
+        If no conversion is used, return an array of type `str`. If converted to different types, 
+        then a list of converted columns are returned. If all types are same, return an array of 
+        that type.
+
+    """
+    data = []
+
+    with open(file, 'r') as f:
+        if regex is None:
+            size = 0
+            for __line in f.read().splitlines():
+                __line = __line.strip()
+                if __line.startswith( comment ):
+                    continue
+                __row = __line.split( delim )
+                if size:
+                    if len( data[-1] ) != len( __row ):
+                        if ignore:
+                            continue
+                        raise ValueError("row size mismatch: {} and {}".format( len( data[-1] ), len( __row ) ))
+                data.append( __row )
+                size += 1
+        else:
+            import re 
+
+            if not isinstance( regex, str ):
+                raise TypeError("regex must be 'str'")
+            for __line in f.read().splitlines():
+                __line = __line.strip()
+                if __line.startswith( comment ):
+                    continue
+                m = re.search( regex, __line )
+                if not m:
+                    if ignore:
+                        continue
+                    raise ValueError("cannot find a match to the pattern")
+                data.append( m.groups() )
+
+    data = np.array( data )
     
+    if isinstance( convert, str ):
+        convert = [{'f': 'float', 'd': 'int', 's': 'str', 'c': 'complex'}[c] for c in convert]
+
+    if convert is True:
+        data = data.astype( 'float' )
+    elif isinstance( convert, list ):
+        if len(convert) != data.shape[1]:
+            raise TypeError("convert do not have enough entries: should have {}".format( data.shape[1] ))
+        data = list( data.T )
+        for i in range( len( convert ) ):
+            try:
+                data[i] = data[i].astype( convert[i] )
+            except Exception:
+                raise RuntimeError("error converting column {} to '{}'".format( i, convert[i] ))
+        
+        if len( set( convert ) ) == 1:
+            data = np.array( data ).T
+    else:
+        raise TypeError("convert must be a 'bool', 'str' or 'list' of types")
+        
+    return data
+
 
 
     
