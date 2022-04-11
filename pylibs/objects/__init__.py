@@ -26,6 +26,8 @@ or its subclasses.
 """
 
 from pylibs.objects._tables import LinesTable, LevelsTable
-from pylibs.objects._elemtree import SpeciesNode, ElementNode, element, elementTree
+from pylibs.objects._elemtree import SpeciesNode, ElementNode
+from pylibs.objects._helpers import element, elementTree, elementTree_fromList, elementTree_fromDict
+from pylibs.objects._helpers import linestable, levelstable
 
 __all__ = ['table', 'tree', ]

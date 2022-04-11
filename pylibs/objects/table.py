@@ -657,5 +657,3 @@ def load(fname: str, sep: str = ',', com: str = '#') -> Table:
 
 
 
-if __name__ == "__main__":
-    pass

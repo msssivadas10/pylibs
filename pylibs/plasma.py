@@ -1,5 +1,31 @@
-from typing import Any, Type
-from pylibs.objects import LinesTable, elementTree
+r"""
+
+`pylibs.plasma`: Plasma Computations at LTE
+===========================================
+
+The plasma module contains the `Plasma` class, which is the base class for all plasma 
+types. Instances of these type represent specific plasmas in ideal conditions. These 
+are then used to calculate the distribution of species and plasma spectrum. All these 
+calculations assume the plasma to be in llocal thermal equilibrium (LTE). 
+
+The `plasma` function creates a plasma type with given components. These types are then 
+initialised with different combinations to create a plasma model.
+
+Notes
+-----
+
+All the calculations assumes the plasma to be at LTE. Species contributions are estimated 
+using *Saha ionization equation* and line intensities are calculted assuming a *Boltzmann 
+distribution* for the states. Each line will be given a Gaussian shape.
+
+It also assumes the wavelengths to be in nanometers, energy and temperature in electron 
+volts and transition rates in hertz. Electron densities are assumed to be in per cubic 
+centimetre. 
+
+"""
+
+from typing import Any, Type, Iterable, Union
+from pylibs.objects import LinesTable, ElementNode, elementTree
 from pylibs.objects.tree import Node
 import pylibs.objects.table as table
 import numpy as np
@@ -49,8 +75,15 @@ class Plasma:
 
     def setup(self, Te: float = ..., Ne: float = ...) -> None:
         r""" 
-        Set the plasma conditions. This will initialise a plasma and calculate 
-        the composition and line intensities at LTE.
+        Set the plasma conditions. This will initialise a plasma and calculate the 
+        composition and line intensities at LTE.
+
+        Parameters
+        ----------
+        Te: float
+            Plasma temperature in eV. Must be a non-zero positive value.
+        Ne: float
+            Electron density in the plasma in :math:`{\rm cm}^{-3}`
         """
         if Te is not ... :
             if not Te > 0.0:
@@ -80,10 +113,27 @@ class Plasma:
     def getSpectrum(self, x: Any, res: float = 500) -> table.Table:
         r"""
         Generate the LTE plasma spectrum at the specified conditions.
+
+        Parameters
+        ----------
+        x: array_like
+            Wavelengths to calculate the intensity. Must be in nanometer units.
+        res: float, optional
+            Resolution parameter. Must be a non-zero positive number. Width of a 
+            line at wavelength `wavelen` is then calculated as `wavelen / res`. Its 
+            default value is 500.
+
+        Returns
+        -------
+        spectrum_t: Table
+            Output spectrum as a table. It contains the spectrum of all the component 
+            species (column `{element_key}_{species_key}`) and their total (`y`) and 
+            wavelength (`x`, same as the input).
+            
         """
         if self.Te is None or self.Ne  is None:
             raise PlasmaError("plasma is not setup.")
-            
+
         def gaussian(x: Any) -> Any:
             return np.exp(-4*np.log(2) * x**2)
 
@@ -150,7 +200,11 @@ class Plasma:
     
     @property
     def N(self) -> Any:
-        """ Composition matrix. """
+        """ 
+        Composition matrix. Each row of the matrix correspond to a component element 
+        (in the order given by `components` property) and columns correspond to the 
+        species. 
+        """
         if self.Te is None or self.Ne  is None:
             raise PlasmaError("plasma is not setup.")
         N = []
@@ -167,10 +221,27 @@ class Plasma:
             for j in range( len(N[i]) ):
                 Nmatrix[i,j] = N[i][j]
         return Nmatrix
-            
-def plasma(name: str, comp: list) -> Type[Plasma]:
+
+def plasma(name: str, comp: Union[Iterable[ElementNode], dict]) -> Type[Plasma]:
     r"""
-    Create a specific plasma class.
+    Create a specific plasma class. It can be used to create specific plasma types, 
+    given the components. Then, this type can be initialised with various combinations 
+    of concentrations to create a plasma.
+
+    Parameters
+    ----------
+    name: str 
+        Name for the new plasma type.
+    comp: sequence of ElementNode, dict
+        A sequence of component elements. Each element is represented by a `Node` object 
+        with child species nodes containing required data. It can also be a dict of special 
+        format (see documentation of `pylibs.objects.elementTree` for the format).
+
+    Returns
+    -------
+    plasma_t: type
+        New plasma object.
+
     """
     # create a tree from the components
     ct     = elementTree(comp)
@@ -227,6 +298,3 @@ def plasma(name: str, comp: list) -> Type[Plasma]:
                     }
                 )
 
-    
-    
-        

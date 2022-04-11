@@ -114,7 +114,14 @@ class SpeciesNode(_SpeciesNode):
 
         # if interpolation is on, make a spline of the partition function values 
         if interpolate:
-            T = np.linspace(0.0, 5.0, 101) if T is None else np.asfarray(T)
+            if T is not None:
+                T = np.asfarray(T)
+                if np.ndim(T) != 1:
+                    raise TypeError("T must be a 1D array")
+                elif T.shape[0] < 10:
+                    raise TypeError("T should have atleast 10 items")
+            else:
+                T = np.linspace(0.0, 5.0, 101) 
             self.pfunc  = CubicSpline( T, self._levels.U(T) )
             # self.levels = None
 
@@ -294,101 +301,7 @@ class ElementNode(_SpeciesNode):
         for s in self.children():
             s.getLTEInntensities()
 
-def element(key: str, m: float, nspec: int, Vs: Sequence[float], levels: Sequence[LevelsTable], lines: Union[LinesTable, Sequence[LinesTable]], interpolate: bool = True, T: Any = None) -> ElementNode:
-    """ 
-    Create a new element node with species. 
 
-    Parameters
-    ----------
-    key: str
-        Key used to specify the element.
-    m: float
-        Atomic mass in amu.
-    nspec: int 
-        Number of species of this element.
-    Vs: sequence of float
-        Ionization energy in eV. Must be a sequence of length `nspec`.
-    levels: sequence of LevelsTable
-        Energy levels of the species. Must be a sequence of length `nspec`.
-    lines: LinesTable, sequence of LinesTable
-        Spectral lines of this element. If a sequence is given, must have length 
-        `nspec` and each table correspond to a species, in their order.
-    interpolate: bool, optional
-        If set true (default), use interpolation table to calculate partition 
-        function.
-    T: array_like, optional
-        Array of temperature values to create interpolation table.
-
-    Returns
-    -------
-    node: ElementNode
-        A tree representing element, with each branch correspond to a species.
     
-    """
-    key = key.lower()
 
-    if m < 0.0:
-        raise ValueError("atomic mass cannot be negative")
-
-    if nspec < 1:
-        raise ValueError("there should be at least one species")
-
-    if len(Vs) != nspec:
-        raise ValueError("incorrect number of ionization energies, must be same as the number of species")
-    Vs = np.asfarray(Vs)
-
-    if len(levels) != nspec:
-        raise ValueError("incorrect number of energy levels, must be same as the number of species")
-
-    if isinstance(lines, LinesTable):
-        if lines.s is None:
-            raise ValueError("table should have species column ('s')")
-
-        # check if the table has `elem` column
-        if lines.elem is None:
-            lines.elem = np.repeat(elem.key, lines.nr)
-
-        _lines = []
-        for s in range(nspec):
-            _lines.append( lines.slice( ( lines.elem == key ) & ( lines.s == s ) ) )
-        lines = _lines
-
-    else:
-        if len(lines) != nspec:
-            raise ValueError("incorrect number of lines tables, must be same as the number of species")
-        elif False in map(lambda o: isinstance(o, LinesTable), lines):
-            raise TypeError("lines lust be an array of 'LinesTable'")
-
-        for s, _lines in enumerate(lines):
-
-            # check if the table has `elem` column else add
-            if _lines.elem is None:
-                _lines.elem = np.repeat(elem.key, _lines.nr)
-
-            # check if the table `s` column else add
-            if _lines.s is None:
-                _lines.s = np.repeat(s, _lines.nr)
-
-    elem = ElementNode(key, m, None)
-    for s in range(nspec):
-        elem.addspecies( SpeciesNode(s, Vs[s], levels[s], lines[s], interpolate, T) )
-
-    return elem
-
-def elementTree(__nodes: Iterable[ElementNode]):
-    """
-    Create a tree of elements. The input must be an array of :class:`ElementNode` 
-    objects and returns a :class:`Node` object with each element as branches. 
-    """
-    if len(__nodes) == 0:
-        raise TypeError("input cannot be empty")
-    
-    root = Node()
-    for elem in __nodes:
-        if not isinstance(elem, ElementNode):
-            raise TypeError("input list must contain only 'ElementNode' objects")
-        root.addchild( elem, key = elem.key )
-    
-    return root
-    
  
