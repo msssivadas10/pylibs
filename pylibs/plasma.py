@@ -222,7 +222,7 @@ class Plasma:
                 Nmatrix[i,j] = N[i][j]
         return Nmatrix
 
-def plasma(name: str, comp: Union[Iterable[ElementNode], dict]) -> Type[Plasma]:
+def plasma(name: str, comp: Union[Iterable[ElementNode], dict, Node]) -> Type[Plasma]:
     r"""
     Create a specific plasma class. It can be used to create specific plasma types, 
     given the components. Then, this type can be initialised with various combinations 
@@ -232,10 +232,11 @@ def plasma(name: str, comp: Union[Iterable[ElementNode], dict]) -> Type[Plasma]:
     ----------
     name: str 
         Name for the new plasma type.
-    comp: sequence of ElementNode, dict
+    comp: sequence of ElementNode, dict, Node
         A sequence of component elements. Each element is represented by a `Node` object 
         with child species nodes containing required data. It can also be a dict of special 
-        format (see documentation of `pylibs.objects.elementTree` for the format).
+        format (see documentation of `pylibs.objects.elementTree` for the format) or a tree 
+        of element nodes.
 
     Returns
     -------
