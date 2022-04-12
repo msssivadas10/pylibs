@@ -16,7 +16,7 @@ class _SpeciesNode(Node):
 
         self.key, self._levels, self._lines = key, levels, lines
         self.setLevels(levels)
-        self.setLines(lines)   
+        self.setLines(lines) 
 
     def keys(self) -> tuple:
         return self.__slots__  
@@ -124,20 +124,22 @@ class SpeciesNode(_SpeciesNode):
                 T = np.linspace(0.0, 5.0, 101) 
             self.pfunc  = CubicSpline( T, self._levels.U(T) )
             # self.levels = None
-
+        
     def keys(self) -> tuple:
         return _SpeciesNode.__slots__ + self.__slots__
 
-    def U(self, T: Any) -> Any:
+    def U(self, T: Any, save: bool = True) -> Any:
         """ 
         Calculate the partition function and store the last value to attribute `Us`. 
         """
         if self.pfunc is None:
-            self.Us = self.pfunc(T)
+            Us = self.pfunc(T)
         else:
-            self.Us = self.levels.U(T)
-        self.T = T
-        return self.Us
+            Us = self.levels.U(T)
+        if save:
+            self.T  = T
+            self.Us = Us
+        return Us
 
     def setLines(self, lines: LinesTable) -> None:
         if lines is not None:

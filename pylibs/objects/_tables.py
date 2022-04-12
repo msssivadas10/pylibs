@@ -90,7 +90,7 @@ class LinesTable(table.Table):
             self.setAkiErrors(errAki)
         else:
             self.setAkiErrors( np.zeros(self.nr) )
-
+    
     def r(self, __i: int) -> tuple:
         o = {
                 'wavelen' : None, 

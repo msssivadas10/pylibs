@@ -1,7 +1,7 @@
 import numpy as np
-from pylibs.objects import linestable, levelstable, loadtxt
+from pylibs.objects import linestable, levelstable, loadtxt, elementTree
 from pylibs.plasma import plasma
-
+from pylibs.analysis import boltzmann, optimizePlasma
 
 def loadlines(file: str, select: list = None):
     accMap = {
@@ -85,6 +85,8 @@ def main():
                 },
         }
 
+    t = elementTree(t)
+
     cusn = plasma('cusn', t)
 
     a = cusn(70.0)
@@ -92,6 +94,25 @@ def main():
     a.setup(1.0, 1.0E+17)
 
     # s = a.getSpectrum(np.linspace(300.0, 600.0, 101), 500)
+
+    a.lock()
+
+    lnt = a.lines
+
+    # boltzmann(lnt, 2, a)
+
+    # print(lnt.boltzY)
+
+    b = cusn(50.0)
+    b.setup(0.5, 1.0E+17)
+    b.lock()
+
+    optimizePlasma( lnt, b,  )
+
+    # print( b.Te, b.composition )
+
+    print( b.comp is a.comp )
+    
 
 
 if __name__ == '__main__':

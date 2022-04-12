@@ -29,9 +29,15 @@ from pylibs.objects import LinesTable, ElementNode, elementTree
 from pylibs.objects.tree import Node
 import pylibs.objects.table as table
 import numpy as np
+import warnings
 
 class PlasmaError(Exception):
     """ Base class of exceptions used by plasma objects. """
+    ...
+
+class PlasmaWarning(Warning):
+    """ Base class for warning used by plasma objects. """
+    ...
 
 
 class Plasma:
@@ -52,13 +58,15 @@ class Plasma:
         Function to create a plasma class.
 
     """
-    __slots__ = 'comp', 'Te', 'Ne', 
+    __slots__ = 'comp', 'Te', 'Ne', '_laststate'
     __name__  = ''
 
     def __init__(self, *args, **kwargs) -> None:
         self.comp : Node
         self.Te   : float
         self.Ne   : float
+
+        self._laststate: bool
 
     def __repr__(self) -> str:
         return '{}({})'.format(
@@ -73,7 +81,59 @@ class Plasma:
     def _comp(self) -> tuple:
         ...
 
-    def setup(self, Te: float = ..., Ne: float = ...) -> None:
+    def lock(self, value: bool = True) -> None:
+        """ Lock the plasma. i.e., No changes are made to the tables. """
+        if value: 
+            if self.locked:
+                return
+
+            # lock the plasma: get the current settings and store it
+            etree = {}
+            for __elem in self.comp.children():
+                e = { 
+                        'Nx'     : __elem.Nx, 
+                        'species': [],
+                    }
+                for __s in __elem.children():
+                    e['species'].append(
+                                            {
+                                                'Ns': __s.Ns,
+                                                'Us': __s.Us,
+                                            }
+                                        )
+                etree[ __elem.key ] = e
+            self._laststate = { 
+                                    'Te'   : self.Te, 
+                                    'Ne'   : self.Ne, 
+                                    'etree': etree, 
+                              }
+            return
+        
+        if not self.locked:
+            return 
+
+        # unlock the plasma: reset current settings
+        self.Te = self._laststate[ 'Te' ]
+        self.Ne = self._laststate[ 'Ne' ]
+        for key, value in self._laststate[ 'etree' ].items():
+            self.comp.child( key ).Nx = value[ 'Nx' ]
+            for s, spec in enumerate( value[ 'species' ] ):
+                self.comp.child( key ).species( s ).Ns = spec[ 'Ns' ]
+                self.comp.child( key ).species( s ).Us = spec[ 'Us' ]
+
+                self.comp.child( key ).species( s ).T  = self._laststate[ 'Te' ]
+        self._laststate = None
+        return
+
+    def unlock(self) -> None:
+        """ Unlock the plasma. """
+        return self.lock(False)
+
+    def setComposition(self, *args, **kwargs) -> None:
+        """ Set plasma composition. """
+        ...
+
+    def setup(self, Te: float = ..., Ne: float = ..., warn: bool = False) -> None:
         r""" 
         Set the plasma conditions. This will initialise a plasma and calculate the 
         composition and line intensities at LTE.
@@ -84,6 +144,8 @@ class Plasma:
             Plasma temperature in eV. Must be a non-zero positive value.
         Ne: float
             Electron density in the plasma in :math:`{\rm cm}^{-3}`
+        warn: bool, optional
+            If set, print warning messages, if any.
         """
         if Te is not ... :
             if not Te > 0.0:
@@ -93,20 +155,26 @@ class Plasma:
             if not Ne > 0.0:
                 raise ValueError("electron number density 'Ne' must be positive")
             self.Ne = Ne
-        self._getComposition()
-        self._getIntensity()
+        self._getComposition( warn )
+        self._getIntensity( warn )
 
-    def _getComposition(self) -> None:
+    def _getComposition(self, warn: bool = False) -> None:
         """ 
         Calculate the composition at LTE. 
         """
+        if self.Te is None or self.Ne is None:
+            raise PlasmaError("plasma is not setup")
         for __elem in self.comp.children():
             __elem.getLTEComposition(self.Te, self.Ne)
     
-    def _getIntensity(self) -> None:
+    def _getIntensity(self, warn: bool = False) -> None:
         """
         Calculate intensities at LTE.
         """
+        if self.locked:
+            if warn:
+                warnings.warn("cannot compute line intensities: plasma is locked", PlasmaWarning)
+            return 
         for __elem in self.comp.children():
             __elem.getLTEInntensities()
 
@@ -222,6 +290,10 @@ class Plasma:
                 Nmatrix[i,j] = N[i][j]
         return Nmatrix
 
+    @property
+    def locked(self) -> bool:
+        return (self._laststate is not None)
+
 def plasma(name: str, comp: Union[Iterable[ElementNode], dict, Node]) -> Type[Plasma]:
     r"""
     Create a specific plasma class. It can be used to create specific plasma types, 
@@ -249,10 +321,14 @@ def plasma(name: str, comp: Union[Iterable[ElementNode], dict, Node]) -> Type[Pl
     _slots = tuple([ o.key for o in ct.children() ]) 
 
     def _init(self: Plasma, *args, **kwargs) -> None:
-        self.comp  = ct
-        self.Te    = None
-        self.Ne    = None
+        self.comp       = ct
+        self.Te         = None
+        self.Ne         = None
+        self._laststate = None
 
+        self.setComposition(*args, **kwargs)
+
+    def _setComposition(self, *args, **kwargs) -> None:
         # parse arguments
         args    = dict(zip(self.__slots__, args))
         missing = None
@@ -272,7 +348,8 @@ def plasma(name: str, comp: Union[Iterable[ElementNode], dict, Node]) -> Type[Pl
             raise TypeError(f"missing value for argument '{missing}'")
 
         if sum(args.values()) != 100.0:
-            raise ValueError("total concentration must be 1")
+            print(args)
+            raise ValueError("total concentration must be 100")
 
         # convert values from weight to number and store it at 
         # element nodes. use weights at plasma
@@ -292,10 +369,11 @@ def plasma(name: str, comp: Union[Iterable[ElementNode], dict, Node]) -> Type[Pl
                     name,
                     (Plasma, ),
                     {
-                        '__slots__' : _slots,
-                        '__init__'  : _init,
-                        '__name__'  : name,
-                        '_comp'     : _comp,
+                        '__slots__'     : _slots,
+                        '__init__'      : _init,
+                        '__name__'      : name,
+                        '_comp'         : _comp,
+                        'setComposition': _setComposition,
                     }
                 )
 

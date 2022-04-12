@@ -134,3 +134,4 @@ def node(name: str, attrs: Iterable[str], namespace: dict = {}) -> Type[Node]:
                         **namespace 
                     }
                 )
+
