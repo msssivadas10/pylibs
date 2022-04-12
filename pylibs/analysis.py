@@ -125,7 +125,22 @@ def boltzmann(lnt: LinesTable, mode: int = 0, p: Plasma = None) -> None:
 
 def optimizePlasma(lnt: LinesTable, p: Plasma, flags: int = FIXED_DENSITY) -> None:
     """
-    Optimize the plasma conditions to match with the given lines intensities.
+    Optimize the plasma conditions to match with the given lines intensities. This is done 
+    minimising the spread of the Boltzmann coordinates from a straight line.
+
+    Parameters
+    ----------
+    lnt: LinesTable:
+        Data for the spectral lines are taken from this table. Must have the intensity column.
+    p: Plasma
+        Plasma object setup at an initial 'guess' condition. This must be *locked* to prevent 
+        any data loss. After successful minimization, this object will be set at the optimum 
+        condition.
+    flags: int, optional
+        Special flags tell whether to fix the temperature of density as constants. The flag 
+        `FIXED_DENSITY` is to fix electron density (default) and `FIXED_TEMPERATURE` is to 
+        fix temperature.
+    
     """
     if not isinstance(lnt, LinesTable):
         raise TypeError("lnt must be a 'LinesTable'")
@@ -159,7 +174,6 @@ def optimizePlasma(lnt: LinesTable, p: Plasma, flags: int = FIXED_DENSITY) -> No
         return __p.setup( Te, Ne )
 
     def cost(x: Any, __p: Plasma, __lnt) -> float:
-        # print( __p.Te, __p.Ne, __p.composition )
         applyVector( __p, x )
         bx, by           = boltzmannXY( __lnt, 2, None, __p )
         slope, intercept = np.polyfit( bx, __p.Te * by, deg = 1 )

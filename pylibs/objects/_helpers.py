@@ -206,7 +206,7 @@ def element(key: str, m: float, nspec: int, Vs: Sequence[float], levels: Sequenc
             if _lines.s is None:
                 _lines.s = np.repeat(s, _lines.nr)
 
-    elem = ElementNode(key, m, None)
+    elem = ElementNode(key, m)
     for s in range(nspec):
         elem.addspecies( SpeciesNode(s, Vs[s], levels[s], lines[s], interpolate, T) )
 

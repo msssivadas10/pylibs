@@ -26,7 +26,7 @@ centimetre.
 
 from typing import Any, Type, Iterable, Union
 from pylibs.objects import LinesTable, ElementNode, elementTree
-from pylibs.objects.tree import Node
+from pylibs.objects.tree import Node, node
 import pylibs.objects.table as table
 import numpy as np
 import warnings
@@ -58,11 +58,12 @@ class Plasma:
         Function to create a plasma class.
 
     """
-    __slots__ = 'comp', 'Te', 'Ne', '_laststate'
+    __slots__ = 'comp', 'Te', 'Ne', '_laststate', '_lnt'
     __name__  = ''
 
     def __init__(self, *args, **kwargs) -> None:
         self.comp : Node
+        self._lnt : Node
         self.Te   : float
         self.Ne   : float
 
@@ -176,8 +177,32 @@ class Plasma:
                 warnings.warn("cannot compute line intensities: plasma is locked", PlasmaWarning)
             return 
         for __elem in self.comp.children():
-            __elem.getLTEInntensities()
+            for __s in __elem.children():
+                I = __s.getLTEIntensities()
+                self._lnt.child( __elem.key ).child( __s.key ).lines.setLineIntensity( I )
 
+    def _makeLinesTree(self) -> None:
+        """
+        Create a copy of lines data as tree.
+        """
+        def copylines(lnt: LinesTable):
+            cp = LinesTable( lnt.wavelen, lnt.aki, lnt.ek, lnt.gk, lnt.elem, lnt.s, lnt.errAki )
+            if lnt.boltzX is not None and lnt.boltzY is not None:
+                cp.setBoltzmannXY( lnt.boltzX, lnt.boltzY )
+            if lnt.I is not None:
+                cp.setLineIntensity( lnt.I )
+            return cp
+
+        linenode = node( 'linesnode', [ 'key', 'lines' ] )
+
+        root = Node()
+        for __elem in self.comp.children():
+            en   = linenode( __elem.key, None )
+            for __s in __elem.children():
+                en.addchild( linenode( __s.key, copylines( __s.lines ) ) )
+            root.addchild( en, en.key )
+        self._lnt = root
+        
     def getSpectrum(self, x: Any, res: float = 500) -> table.Table:
         r"""
         Generate the LTE plasma spectrum at the specified conditions.
@@ -199,6 +224,9 @@ class Plasma:
             wavelength (`x`, same as the input).
             
         """
+        # if self.locked:
+            # raise PlasmaError("cannot compute spectrum: plasma is locked")
+
         if self.Te is None or self.Ne  is None:
             raise PlasmaError("plasma is not setup.")
 
@@ -208,7 +236,7 @@ class Plasma:
         # sampling the spectrum using a gaussian shape
         x           = np.asfarray(x).flatten()
         spec, total = {'x': None, 'y': None}, np.zeros_like(x)
-        for __elem in self.comp.children():
+        for __elem in self._lnt.children():
             for __s in __elem.children():
                 w      = __s.lines.wavelen / res
                 I      = gaussian( (x[:,None] -__s.lines.wavelen) / w ) @ __s.lines.I
@@ -235,13 +263,14 @@ class Plasma:
         hasI, hasXY = True, True
 
         lines = []
-        for __enode in self.comp.children():
-            o = __enode.lines
-            if o.I is None:
-                hasI = False
-            if o.boltzX is None or o.boltzY is None:
-                hasXY = False
-            lines.append(o)
+        for __enode in self._lnt.children():
+            for __snode in __enode.children():
+                o = __snode.lines
+                if o.I is None:
+                    hasI = False
+                if o.boltzX is None or o.boltzY is None:
+                    hasXY = False
+                lines.append(o)
         
         o = LinesTable(elem = [], s = [])
         if hasI:
@@ -327,6 +356,7 @@ def plasma(name: str, comp: Union[Iterable[ElementNode], dict, Node]) -> Type[Pl
         self._laststate = None
 
         self.setComposition(*args, **kwargs)
+        self._makeLinesTree()
 
     def _setComposition(self, *args, **kwargs) -> None:
         # parse arguments

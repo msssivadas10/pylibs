@@ -1,64 +1,11 @@
 import numpy as np
-from typing import Any, Iterable, Sequence, Union
+from typing import Any
 from scipy.interpolate import CubicSpline
 from functools import reduce
 from pylibs.objects._tables import LinesTable, LevelsTable
 from pylibs.objects.tree import Node
 
-class _SpeciesNode(Node):
-    """ 
-    Base class for species or element nodes. 
-    """
-    __slots__ = 'key', '_lines', '_levels', 
-
-    def __init__(self, key: Any, levels: LevelsTable = None, lines: LinesTable = None) -> None:
-        super().__init__()  
-
-        self.key, self._levels, self._lines = key, levels, lines
-        self.setLevels(levels)
-        self.setLines(lines) 
-
-    def keys(self) -> tuple:
-        return self.__slots__  
-        
-    def setLevels(self, levels: LevelsTable) -> None:
-        """ Set a levels table. """
-        if levels is not None:
-            if isinstance(levels, (list, tuple, np.ndarray)):
-                levels = np.asfarray(levels)
-                if np.ndim(levels) != 2:
-                    raise TypeError("levels should be a 2D array")
-                elif levels.shape[1] != 2:
-                    raise TypeError("levels array should have 2 columns: 'g' and 'value'")
-                levels = LevelsTable(levels[:,0], levels[:,1])
-            elif not isinstance(levels, LevelsTable):
-                raise TypeError("levels must be a 'LevelsTable'")
-        self._levels = levels
-
-    def setLines(self, lines: LinesTable) -> None:  
-        """ Set a lines table. """      
-        if lines is not None:
-            if not isinstance(lines, LinesTable):
-                raise TypeError("lines must be a 'LinesTable'")
-        self._lines = lines    
-
-    def freeLines(self) -> None:
-        """ Disconnect the lines table from the node. """
-        return self.setLines(None)
-
-    def freeLevels(self) -> None:
-        """ Disconnect the levels table from the node. """
-        return self.setLevels(None)
-
-    @property
-    def lines(self) -> LinesTable:
-        return self._lines
-    
-    @property
-    def levels(self) -> LevelsTable:
-        return self._levels
-
-class SpeciesNode(_SpeciesNode):
+class SpeciesNode(Node):
     """ 
     A node representing a species of some element. Each species will have its 
     own ionisation energy, spectral lines etc. These data can be stored in a 
@@ -97,13 +44,15 @@ class SpeciesNode(_SpeciesNode):
         Table of energy levels (getter).
 
     """
-    __slots__ = 'Vs', 'Ns', 'Us', 'pfunc', 'T'
+    __slots__ = 'key', '_lines', '_levels', 'Vs', 'Ns', 'Us', 'pfunc', 'T'
     __name__  = 'SpeciesNode'
 
     def __init__(self, key: int, Vs: float, levels: LevelsTable, lines: LinesTable = None, interpolate: bool = True, T: Any = None) -> None:
-        super().__init__(key, None, None)
+        super().__init__()
         self.setLevels(levels)
         self.setLines(lines)
+
+        self.key = key
 
         if not np.isscalar(Vs):
             raise TypeError("Vs must be a scalar")
@@ -123,10 +72,9 @@ class SpeciesNode(_SpeciesNode):
             else:
                 T = np.linspace(0.0, 5.0, 101) 
             self.pfunc  = CubicSpline( T, self._levels.U(T) )
-            # self.levels = None
         
     def keys(self) -> tuple:
-        return _SpeciesNode.__slots__ + self.__slots__
+        return self.__slots__
 
     def U(self, T: Any, save: bool = True) -> Any:
         """ 
@@ -141,15 +89,22 @@ class SpeciesNode(_SpeciesNode):
             self.Us = Us
         return Us
 
+    def setLevels(self, levels: LevelsTable) -> None:
+        """ Set a levels table. """
+        if levels is not None:
+            if not isinstance(levels, LevelsTable):
+                raise TypeError("levels must be a 'LevelsTable'")
+        self._levels = levels
+
     def setLines(self, lines: LinesTable) -> None:
         if lines is not None:
             if not isinstance(lines, LinesTable):
                 raise TypeError("lines must be a 'LinesTable'")
             if lines.s is None:
                 lines.s = np.repeat( self.key, lines.nr )
-        return super().setLines(lines)
+        self._lines = lines 
 
-    def getLTEInntensities(self) -> None:
+    def getLTEIntensities(self) -> Any:
         """
         Calculate line intensitiesat LTE.
         """
@@ -162,9 +117,19 @@ class SpeciesNode(_SpeciesNode):
                     * self.lines.gk * self.lines.aki * np.exp(-self.lines.ek / self.T)
                     * (1.24E+03 / self.lines.wavelen)
             )
-        return self.lines.setLineIntensity(I)
+        return I
+    
+    @property
+    def lines(self) -> LinesTable:
+        """ Lines of this species. """
+        return self._lines
+    
+    @property
+    def levels(self) -> LevelsTable:
+        """ Energy levels of this species. """
+        return self._levels
 
-class ElementNode(_SpeciesNode):
+class ElementNode(Node):
     """ 
     A node representing a specific element. An element node will have some species 
     nodes connected to it.
@@ -184,16 +149,18 @@ class ElementNode(_SpeciesNode):
         Number of atoms of this element in some mixture.
 
     """
-    __slots__ = 'm', 'Nx'
+    __slots__ = 'key', 'm', 'Nx'
     __name__  = 'ElementNode'
 
-    def __init__(self, key: str, m: float, lines: LinesTable = None) -> None:
-        super().__init__(key, None, lines)
-        self.m  = m
-        self.Nx = None
+    def __init__(self, key: str, m: float) -> None:
+        super().__init__()  
+
+        self.key = key
+        self.m   = m
+        self.Nx  = None
 
     def keys(self) -> tuple:
-        return _SpeciesNode.__slots__ + self.__slots__
+        return self.__slots__
         
     @property
     def nspec(self) -> int:
@@ -238,32 +205,13 @@ class ElementNode(_SpeciesNode):
             lines.join( s.lines )
         return lines 
 
-    @lines.setter
-    def lines(self, lines: LinesTable) -> None:
-        """ Link a lines table. This will free lines of child species. """
-        if not isinstance(lines, LinesTable):
-            raise TypeError("lines must be a 'LinesTable'")
-        self.setLines(lines)         
-        for s in self._child:
-            s.freeLines()
-
-    def setLines(self, lines: LinesTable) -> None:
-        if lines is not None:
-            if not isinstance(lines, LinesTable):
-                raise TypeError("lines must be a 'LinesTable'")
-            if lines.elem is None:
-                lines.elem = np.repeat( self.key, lines.nr )
-            if lines.s is None:
-                raise ValueError("table should have species column ('s')")
-        return super().setLines(lines)
-
     def U(self, T: Any) -> Any:
         """ Calculate the partition function for each attached species. """
         return np.array([ s.U(T) for s in self._child ])
     
     def species(self, key: int) -> SpeciesNode:
         """ Get a species node. """
-        return super().child(key)
+        return self.child(key)
 
     def addspecies(self, __spec: SpeciesNode) -> None:
         """ Add a child species. """
@@ -296,12 +244,6 @@ class ElementNode(_SpeciesNode):
         for s in range(self.nspec):
             self.species(s).Ns = Ns[s]
 
-    def getLTEInntensities(self) -> None:
-        """
-        Calculate line intensitiesat LTE.
-        """
-        for s in self.children():
-            s.getLTEInntensities()
 
 
     

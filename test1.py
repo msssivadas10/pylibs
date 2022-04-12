@@ -93,7 +93,7 @@ def main():
 
     a.setup(1.0, 1.0E+17)
 
-    # s = a.getSpectrum(np.linspace(300.0, 600.0, 101), 500)
+    s = a.getSpectrum(np.linspace(300.0, 600.0, 101), 500)
 
     a.lock()
 
@@ -109,11 +109,9 @@ def main():
 
     optimizePlasma( lnt, b,  )
 
-    # print( b.Te, b.composition )
+    print( b.Te, b.composition, a.Te, a.composition )
 
-    print( b.comp is a.comp )
     
-
 
 if __name__ == '__main__':
     main()
