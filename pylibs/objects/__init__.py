@@ -13,7 +13,7 @@ There are also some functions to make the creation of these objects easier.
 """
 
 from pylibs.objects.special import LinesTable, LevelsTable, SpeciesNode, ElementNode
-from pylibs.objects.helpers import element, elementTree, elementTree_fromList, elementTree_fromDict
+from pylibs.objects.helpers import element, elementTree
 from pylibs.objects.helpers import linestable, levelstable
 from pylibs.objects.helpers import loadtxt
 

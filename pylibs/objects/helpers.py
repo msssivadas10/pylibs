@@ -130,25 +130,14 @@ def levelstable(a: Any) -> LevelsTable:
 # Functions to create special nodes and trees
 # =========================================================================================
 
-def element(key: str, m: float, nspec: int, Vs: Sequence[float], levels: Sequence[LevelsTable], lines: Union[LinesTable, Sequence[LinesTable]], interpolate: bool = True, T: Any = None) -> ElementNode:
+def element(__o: dict, interpolate: bool = True, T: Any = None) -> ElementNode:
     """ 
-    Create a new element node with species. 
+    Create a new element node with species. Data are taken from the input dict.
 
     Parameters
     ----------
-    key: str
-        Key used to specify the element.
-    m: float
-        Atomic mass in amu.
-    nspec: int 
-        Number of species of this element.
-    Vs: sequence of float
-        Ionization energy in eV. Must be a sequence of length `nspec`.
-    levels: sequence of LevelsTable
-        Energy levels of the species. Must be a sequence of length `nspec`.
-    lines: LinesTable, sequence of LinesTable
-        Spectral lines of this element. If a sequence is given, must have length 
-        `nspec` and each table correspond to a species, in their order.
+    __o: dict
+        A dict containing the element data.
     interpolate: bool, optional
         If set true (default), use interpolation table to calculate partition 
         function.
@@ -159,57 +148,113 @@ def element(key: str, m: float, nspec: int, Vs: Sequence[float], levels: Sequenc
     -------
     node: ElementNode
         A tree representing element, with each branch correspond to a species.
+
+    Notes
+    -----
+    For this to work properly, element data must be a dict with the given fields:
+    
+    1. `key: str`  is the key used to specify the element.
+    2. `m: float`  is the atomic mass in amu.
+    3. `species: list` is list of species dict. The species dict also have specific fields:
+
+        A. `Vs: float` is the ionization energy in eV.
+        B. `levels: LevelsTable` is the energy levels of the species. 
+        C. `lines: LinesTable` is a table of spectral lines of this element. 
     
     """
-    key = key.lower()
+    return element_fromDict( __o, interpolate, T )
 
-    if m < 0.0:
-        raise ValueError("atomic mass cannot be negative")
+def element_fromDict(__o: dict, interpolate: bool = True, T: Any = None) -> ElementNode:
+    """ 
+    Create a new element node with species. Data are taken from the input dict.
+    """
 
-    if nspec < 1:
-        raise ValueError("there should be at least one species")
+    def species_fromDict(__o: dict, elem: str) -> SpeciesNode:
+        """ A species node from dict. """
+        data = {}
+        for key, value in __o.items():
+            if key == 'key':
+                data[ 'key' ] = value
+            elif key == 'Vs':
+                if not isinstance( value, (float, int) ):
+                    raise TypeError("ionisation energy 'Vs' must be a number")
+                data[ 'Vs' ] = value
+            elif key == 'levels':
+                if not isinstance(value, LevelsTable):
+                    try:
+                        value = levelstable(value)
+                    except Exception:
+                        raise TypeError("levels must be a 'LevelsTable' or a 2D array")
+                data[ 'levels' ] = value
+            elif key == 'lines':
+                if not isinstance(value, LinesTable):
+                    raise TypeError("lines must be a 'LinesTable'")
 
-    if len(Vs) != nspec:
-        raise ValueError("incorrect number of ionization energies, must be same as the number of species")
-    Vs = np.asfarray(Vs)
+                data[ 'lines' ] = value
+            else:
+                raise KeyError("invalid key: '{}'".format(key))
 
-    if len(levels) != nspec:
-        raise ValueError("incorrect number of energy levels, must be same as the number of species")
+        # check if all field are present
+        for key in [ 'key', 'Vs', 'levels', 'lines' ]:
+            if key not in data.keys():
+                raise KeyError("cannot find field: '{}'".format(key))
 
-    if isinstance(lines, LinesTable):
-        if lines.s is None:
-            raise ValueError("table should have species column ('s')")
+        # filter lines
+        lines           = data[ 'lines' ]
+        data[ 'lines' ] = lines.slice( ( lines.elem == elem ) & ( lines.s == data[ 'key' ] ) )
 
-        # check if the table has `elem` column
+        data[ 'interpolate' ] = interpolate
+        data[ 'T' ]           = T
+        return SpeciesNode( **data )
+
+    data = {}
+    for key, value in __o.items():
+        if key == 'key':
+            data[ 'key' ] = value
+        elif key == 'm':
+            if not isinstance(value, (float, int)):
+                raise TypeError("atomic mass 'm' must be a number")
+            data[ 'm' ] = value 
+        elif key not in [ 'species', 'lines' ]:
+            raise KeyError("invalid key: '{}'".format(key))
+    # check if all field are present
+    for key in [ 'key', 'm' ]:
+        if key not in data.keys():
+            raise KeyError("cannot find field: '{}'".format(key))
+
+    # get species
+    species = []
+    if 'species' in __o.keys():
+        for __s in __o[ 'species' ]:
+            if not isinstance(__s, dict):
+                raise TypeError("entries in species must be 'dict'")
+            species.append(__s)
+
+    # if a lines table is given, extract lines of this specific element
+    if 'lines' in __o.keys():
+        lines = __o[ 'lines' ]
+        if not isinstance(lines, LinesTable):
+            raise TypeError("lines must be a 'LinesTable'")
+        
+        # get a subset of lines: lines of this element only
         if lines.elem is None:
-            lines.elem = np.repeat(elem.key, lines.nr)
+            lines.elem = np.repeat( data[ 'key' ], lines.nr )
+        else:
+            lines = lines.slice( lines.elem == data[ 'key' ] )
 
-        _lines = []
-        for s in range(nspec):
-            _lines.append( lines.slice( ( lines.elem == key ) & ( lines.s == s ) ) )
-        lines = _lines
+        for s in range( len( species ) ):
+            if 'lines' in species[s].keys():
+                continue
+            if lines.s is None:
+                raise KeyError("lines should have species column: 's'")
+            species[s][ 'lines' ] = lines.slice( lines.s == s )
 
-    else:
-        if len(lines) != nspec:
-            raise ValueError("incorrect number of lines tables, must be same as the number of species")
-        elif False in map(lambda o: isinstance(o, LinesTable), lines):
-            raise TypeError("lines lust be an array of 'LinesTable'")
+    e = ElementNode( **data )
+    for s in range( len( species ) ):
+        species[s][ 'key' ] = s
+        e.addspecies( species_fromDict( species[s], data[ 'key' ] ) )
 
-        for s, _lines in enumerate(lines):
-
-            # check if the table has `elem` column else add
-            if _lines.elem is None:
-                _lines.elem = np.repeat(elem.key, _lines.nr)
-
-            # check if the table `s` column else add
-            if _lines.s is None:
-                _lines.s = np.repeat(s, _lines.nr)
-
-    elem = ElementNode(key, m)
-    for s in range(nspec):
-        elem.addspecies( SpeciesNode(s, Vs[s], levels[s], lines[s], interpolate, T) )
-
-    return elem
+    return e
 
 def elementTree(__in: Any, interpolate: bool = True, T: Any = None):
     """
@@ -278,117 +323,8 @@ def elementTree_fromList(__nodes: Iterable[ElementNode]):
 
 def elementTree_fromDict(__dict: dict, interpolate: bool = True, T: Any = None) -> Node:
     """ 
-    Create a tree of elements. Data are taken from the input dict. For this to work, 
-    the input dict must be of special format. Top level key-value pairs correspond 
-    to element key-data pairs. Each element data should be a dict with fields `m` 
-    for atomic mass and `species` for species data. Species data shold be a dict with 
-    fields `Vs`-ionization energy, `levels`-energy level table and `lines`-spectral 
-    lines table.  
-
-    Parameters
-    ----------
-    __dict: dict
-        Element tree data. A dict in the specified format.
-    interpolate: bool, optional
-        Use interpolated partition function values (default).
-    T: array_like, optional
-        Temperature values uaed to interpolate. Default is 101 points in [0,5] interval.
-    
-    Returns
-    -------
-    rood: Node
-        Root node of the element tree.
-
+    Create a tree of elements. Data are taken from the input dict. 
     """
-    def species_fromDict(__o: dict, elem: str) -> SpeciesNode:
-        """ A species node from dict. """
-        data = {}
-        for key, value in __o.items():
-            if key == 'key':
-                data[ 'key' ] = value
-            elif key == 'Vs':
-                if not isinstance( value, (float, int) ):
-                    raise TypeError("ionisation energy 'Vs' must be a number")
-                data[ 'Vs' ] = value
-            elif key == 'levels':
-                if not isinstance(value, LevelsTable):
-                    try:
-                        value = levelstable(value)
-                    except Exception:
-                        raise TypeError("levels must be a 'LevelsTable' or a 2D array")
-                data[ 'levels' ] = value
-            elif key == 'lines':
-                if not isinstance(value, LinesTable):
-                    raise TypeError("lines must be a 'LinesTable'")
-
-                data[ 'lines' ] = value
-            else:
-                raise KeyError("invalid key: '{}'".format(key))
-
-        # check if all field are present
-        for key in [ 'key', 'Vs', 'levels', 'lines' ]:
-            if key not in data.keys():
-                raise KeyError("cannot find field: '{}'".format(key))
-
-        # filter lines
-        lines           = data[ 'lines' ]
-        data[ 'lines' ] = lines.slice( ( lines.elem == elem ) & ( lines.s == data[ 'key' ] ) )
-
-        data[ 'interpolate' ] = interpolate
-        data[ 'T' ]           = T
-        return SpeciesNode( **data )
-
-    def element_fromDict(__o: dict) -> ElementNode:
-        """ An element node from dict. """
-        data = {}
-        for key, value in __o.items():
-            if key == 'key':
-                data[ 'key' ] = value
-            elif key == 'm':
-                if not isinstance(value, (float, int)):
-                    raise TypeError("atomic mass 'm' must be a number")
-                data[ 'm' ] = value 
-            elif key not in [ 'species', 'lines' ]:
-                raise KeyError("invalid key: '{}'".format(key))
-        # check if all field are present
-        for key in [ 'key', 'm' ]:
-            if key not in data.keys():
-                raise KeyError("cannot find field: '{}'".format(key))
-
-        # get species
-        species = []
-        if 'species' in __o.keys():
-            for __s in __o[ 'species' ]:
-                if not isinstance(__s, dict):
-                    raise TypeError("entries in species must be 'dict'")
-                species.append(__s)
-
-        # if a lines table is given, extract lines of this specific element
-        if 'lines' in __o.keys():
-            lines = __o[ 'lines' ]
-            if not isinstance(lines, LinesTable):
-                raise TypeError("lines must be a 'LinesTable'")
-            
-            # get a subset of lines: lines of this element only
-            if lines.elem is None:
-                lines.elem = np.repeat( data[ 'key' ], lines.nr )
-            else:
-                lines = lines.slice( lines.elem == data[ 'key' ] )
-
-            for s in range( len( species ) ):
-                if 'lines' in species[s].keys():
-                    continue
-                if lines.s is None:
-                    raise KeyError("lines should have species column: 's'")
-                species[s][ 'lines' ] = lines.slice( lines.s == s )
-
-        e = ElementNode( **data )
-        for s in range( len( species ) ):
-            species[s][ 'key' ] = s
-            e.addspecies( species_fromDict( species[s], data[ 'key' ] ) )
-
-        return e
-
     if not isinstance(__dict, dict):
         raise TypeError("input must be a 'dict'") 
 
@@ -398,7 +334,7 @@ def elementTree_fromDict(__dict: dict, interpolate: bool = True, T: Any = None) 
             raise TypeError("element data should be a dict")
 
         value[ 'key' ] = key 
-        elem.append( element_fromDict( value ) )
+        elem.append( element_fromDict( value, interpolate, T ) )
     
     return elementTree_fromList( elem )
 
