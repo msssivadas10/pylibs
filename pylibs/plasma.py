@@ -1,26 +1,29 @@
 r"""
 
-`pylibs.plasma`: Plasma Computations at LTE
-===========================================
+PyLIBS Plasma Module
+======================
 
-The plasma module contains the `Plasma` class, which is the base class for all plasma 
-types. Instances of these type represent specific plasmas in ideal conditions. These 
-are then used to calculate the distribution of species and plasma spectrum. All these 
-calculations assume the plasma to be in llocal thermal equilibrium (LTE). 
+The plasma module `pylibs.plasma` cna be used to model a plasma. A plasma model is 
+represented by an instance of :class:`Plasma`, which stores the plasma conditions 
+as its attributes. These conditions are the plasma temperature :math:`T_e`, electron 
+number density :math:`N_e` and the plasma composition. A plasma of some mixture of 
+elements is represented by a plasma type, a subclass of :class:`Plasma`. This then 
+initialised at different combinations of compositions to create a plasma model. One 
+can use the method `plasma.plasma` to create a plasma type.
 
-The `plasma` function creates a plasma type with given components. These types are then 
-initialised with different combinations to create a plasma model.
+Eg., To create a copper-tin alloy plasma, one need the spectroscopic data of copper and 
+tin. This must be arranged as a *tree* for the plasma object to use. Simples way is to 
+arrange them as a `dict` of a special format (see documentation of `plasma.plasma`). If 
+`t` is the element data tree, then
 
-Notes
------
+>>> copper_tin = plasma( 'copper_tin', t )
 
-All the calculations assumes the plasma to be at LTE. Species contributions are estimated 
-using *Saha ionization equation* and line intensities are calculted assuming a *Boltzmann 
-distribution* for the states. Each line will be given a Gaussian shape.
+This can be initialised to make, for example a 70% copper and 30% tin plasma as 
 
-It also assumes the wavelengths to be in nanometers, energy and temperature in electron 
-volts and transition rates in hertz. Electron densities are assumed to be in per cubic 
-centimetre. 
+>>> p1 = copper_tin(70.0, 30.0) # or simply copper_tin(70.0)
+
+This object can be then used for generating an ideal plasma spectrum or as a model for 
+analysing a real life spectrum using the `pylibs.analysis` module! 
 
 """
 
@@ -39,22 +42,26 @@ class PlasmaWarning(Warning):
     """ Base class for warning used by plasma objects. """
     ...
 
-
 class Plasma:
     r"""
     Base class for all plasma classes. A `Plasma` object represents a plasma at LTE. 
     This object can be then used to get the composition, plasma spectrum etc. at 
-    local thermal equilibrium (LTE).
+    local thermal equilibrium (LTE). A plasma type can created using the function 
+    `pylibs.plasma`, given the component elements data.
 
     Parameters
     ----------
     *args, **kwargs: Any
         Input parameters to initialise the plasma. Usually, they will be the composition 
-        of plasma components as weight percentages.
+        of plasma components as weight percentages. So, they must add to 100.
+
+    Examples
+    --------
+    todo
 
     See Also
     --------
-    table:
+    plasma:
         Function to create a plasma class.
 
     """
@@ -336,13 +343,33 @@ def plasma(name: str, comp: Union[Iterable[ElementNode], dict, Node]) -> Type[Pl
     comp: sequence of ElementNode, dict, Node
         A sequence of component elements. Each element is represented by a `Node` object 
         with child species nodes containing required data. It can also be a dict of special 
-        format (see documentation of `pylibs.objects.elementTree` for the format) or a tree 
-        of element nodes.
+        format or a tree of element nodes.
 
     Returns
     -------
     plasma_t: type
         New plasma object.
+
+    Notes
+    -----
+    If the input argument `comp` is a dict, then the top level key-value pairs should correspond 
+    to element key-data pairs (i.e., an `str` key and `dict` data). Each element data should be 
+    a dict with fields `m` (`float` atomic mass) and `species` for species data. Each species data 
+    should be a dict with fields `Vs` (`float` ionization energy), `levels` (energy level table) 
+    and `lines` (spectral lines table as a `LinesTable`). These lines could be a single table of 
+    all lines of these elements. In that case, lines of the corresponding species/element are 
+    filtered out.
+
+    Examples
+    --------
+    To create a copper-tin plasma (element data stored in the dict `t`) at a ratio of 70:30, 
+
+    >>> ctplasma = plasma( 'ctplasma', t )
+    >>> cu7sn3   = ctplasma( cu = 70.0, sn = 30.0 )
+
+    It can also initialized as `ctplasma(70, 30)` or `ctplasma(70)` or `ctplasma(sn = 30)`. But, 
+    total composition should be 100 always.
+
 
     """
     # create a tree from the components

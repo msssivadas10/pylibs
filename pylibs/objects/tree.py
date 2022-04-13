@@ -6,13 +6,32 @@ class NodeError(Exception):
 
 class Node:
     """
-    A node of a tree. Every node will have a set of attributes and some 
-    child nodes. 
+    A node of a tree. Every node will have a set of attributes and some child nodes. 
+    The base class :class:`Node` do not have any attributes. To add attributes to a 
+    node, make subclass of node with those attributes. This can be done simply by 
+    using the `node` function. Attributes can be accessed using the dot `.` operator 
+    and child nodes can be accessed using the `Node.child` method.
 
     Parameters
     ----------
     *args, **kwargs: 
         Values of the attributes of a node.
+
+    Examples
+    --------
+    To create a node type called `node1` with fields `x` and `y`, use the `node` function:
+
+    >>> node1 = node( 'node1', [ 'x', 'y' ] )
+    >>> root  = node1( x = 0.0, y = 0.0 )
+
+    To add child node, `n1` using the `Node.addchild` method:
+
+    >>> root.addchild( node1( x = 2.0, y = 5.0 ) )
+
+    To access the first child node,
+
+    >>> root.child( 0 )
+    node1(x=2.0, y=5.0, children=0)
     
     """
     __slots__ = '_child', '_childkey'
@@ -61,6 +80,9 @@ class Node:
         self._child.append(child)
         self._childkey.append(key)
 
+        if True in map( lambda o: isinstance( o, str ), self._childkey ):
+            self._childkey = list( map( str, self._childkey ) )
+
     def child(self, key: Union[int, str] = 0) -> object:
         """ Get a child node. If no keys are given, get the first """
         if isinstance(key, str):
@@ -99,6 +121,11 @@ def node(name: str, attrs: Iterable[str], namespace: dict = {}) -> Type[Node]:
     -------
     node: Node
         New node type.
+
+    Examples
+    --------
+    >>> node1 = node( 'node1', [ 'x', 'y' ] )
+    >>> root  = node1( x = 0.0, y = 0.0 )
         
     """
     if len(attrs) < 1:

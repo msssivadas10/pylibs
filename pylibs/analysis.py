@@ -1,3 +1,14 @@
+r"""
+
+PyLIBS Analysis Module
+======================
+
+This module contains some functions for analysing plasma spectrum. Available features 
+include calculation of Boltzmann coordinates and estimation of plasma conditions from 
+a spectrum.
+
+"""
+
 import numpy as np
 from pylibs.objects import LinesTable
 from pylibs.plasma import Plasma
@@ -47,7 +58,7 @@ def boltzmannXY(lnt: LinesTable, mode: int = 0, I: Any = None, p: Plasma = None)
         I = np.asfarray( I )
         if np.ndim(I) != 1:
             raise AnalysisError("I should be a 1D array")
-        elif np.shape[0] != lnt.nr:
+        elif I.shape[0] != lnt.nr:
             raise AnalysisError("I should have same size as the lines table")
     
     # Type-0 boltzmann plot
@@ -140,6 +151,10 @@ def optimizePlasma(lnt: LinesTable, p: Plasma, flags: int = FIXED_DENSITY) -> No
         Special flags tell whether to fix the temperature of density as constants. The flag 
         `FIXED_DENSITY` is to fix electron density (default) and `FIXED_TEMPERATURE` is to 
         fix temperature.
+
+    Examples
+    --------
+    todo
     
     """
     if not isinstance(lnt, LinesTable):

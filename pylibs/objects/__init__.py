@@ -1,34 +1,20 @@
 #!/usr/bin/python3
 r"""
 
-`pylibs.objects`: Special Data Objects
-======================================
+Objects Module
+==============
 
-The objects module provides specialized objects to store data related to 
-spectrum analysis. This include special tables to store the spectroscopic 
-data of lines and energy levels of species. It also include functions to 
-represent a mixture of multi-species elements as trees. Main use of these 
-functionalities are in the internal plasma spectrum calculator and analysis.
-
-`pylibs.objects.table`: Tables
-------------------------------
-
-This module contains the :class:`Table` base class. Other special tables 
-can be created as subclasses to this. For creating simple tables, use `table` 
-function, which creates a subclass of :class:`Table`.
-
-`pylibs.objects.tree` : Trees
------------------------------
-
-This module can be used to create trees, using instances of :class:`Node` 
-or its subclasses.
+The `pylibs.objects` module contains various objects for data storage, such as tables and 
+trees. These are not optimized objects, but simple. :class:`Table` and :class:`Node` are 
+the basic objects. The first can be used as a base class for tables and the other can be 
+used as the base for creating nodes, which make up a tree (nodes connected as branches). 
+There are also some functions to make the creation of these objects easier.
 
 """
 
-from pylibs.objects._tables import LinesTable, LevelsTable
-from pylibs.objects._elemtree import SpeciesNode, ElementNode
-from pylibs.objects._helpers import element, elementTree, elementTree_fromList, elementTree_fromDict
-from pylibs.objects._helpers import linestable, levelstable
-from pylibs.objects._helpers import loadtxt
+from pylibs.objects.special import LinesTable, LevelsTable, SpeciesNode, ElementNode
+from pylibs.objects.helpers import element, elementTree, elementTree_fromList, elementTree_fromDict
+from pylibs.objects.helpers import linestable, levelstable
+from pylibs.objects.helpers import loadtxt
 
 __all__ = ['table', 'tree', ]
