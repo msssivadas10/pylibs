@@ -370,11 +370,11 @@ class SpeciesNode(Node):
     __slots__ = 'key', '_lines', '_levels', 'Vs', 'Ns', 'Us', 'pfunc', 'T'
     __name__  = 'SpeciesNode'
 
-    def __init__(self, key: int, Vs: float, levels: LevelsTable, lines: LinesTable = None, interpolate: bool = True, T: Any = None) -> None:
+    def __init__(self, key: int = None, Vs: float = None, levels: LevelsTable = None, lines: LinesTable = None, interpolate: bool = True, T: Any = None) -> None:
         super().__init__()
         self.key = key
 
-        if not np.isscalar(Vs):
+        if np.ndim(Vs):
             raise TypeError("Vs must be a scalar")
 
         self.setLevels(levels)
@@ -385,7 +385,18 @@ class SpeciesNode(Node):
         self.pfunc                = None
 
         # if interpolation is on, make a spline of the partition function values 
-        if interpolate:
+        self.enableInterploation( interpolate, T )
+        
+    def keys(self) -> tuple:
+        return self.__slots__
+
+    def enableInterploation(self, value: bool, T: Any = None) -> None:
+        """
+        Enable or disable interploation.
+        """
+        if value:
+            if self._levels is None:
+                return
             if T is not None:
                 T = np.asfarray(T)
                 if np.ndim(T) != 1:
@@ -395,21 +406,19 @@ class SpeciesNode(Node):
             else:
                 T = np.linspace(0.0, 5.0, 101) 
             self.pfunc  = CubicSpline( T, self._levels.U(T) )
-        
-    def keys(self) -> tuple:
-        return self.__slots__
+        else:
+            self.pfunc = None
 
     def U(self, T: Any, save: bool = True) -> Any:
         """ 
         Calculate the partition function and store the last value to attribute `Us`. 
         """
-        if self.pfunc is None:
+        if self.pfunc is not None:
             Us = self.pfunc(T)
         else:
             Us = self.levels.U(T)
         if save:
-            self.T  = T
-            self.Us = Us
+            self.T, self.Us = T, Us
         return Us
 
     def setLevels(self, levels: LevelsTable) -> None:
@@ -420,11 +429,16 @@ class SpeciesNode(Node):
         self._levels = levels
 
     def setLines(self, lines: LinesTable) -> None:
+        """
+        Set lines for this species. 
+        """
         if lines is not None:
             if not isinstance(lines, LinesTable):
                 raise TypeError("lines must be a 'LinesTable'")
             if lines.s is None:
                 lines.s = np.repeat( self.key, lines.nr )
+            else:
+                lines = lines.slice( lines.s == self.key )
         self._lines = lines 
 
     def getLTEIntensities(self) -> Any:
@@ -475,7 +489,7 @@ class ElementNode(Node):
     __slots__ = 'key', 'm', 'Nx'
     __name__  = 'ElementNode'
 
-    def __init__(self, key: str, m: float) -> None:
+    def __init__(self, key: str = None, m: float = None) -> None:
         super().__init__()  
 
         self.key = key
@@ -527,6 +541,24 @@ class ElementNode(Node):
                 continue
             lines.join( s.lines )
         return lines 
+
+    def setLines(self, lines: LinesTable) -> None:
+        """
+        Set lines for this element.
+        """
+        if lines is None:
+            for __s in self.children():
+                __s.setLines( None )
+        if not isinstance( lines, LinesTable ):
+            raise TypeError("lines must be a 'LinesTable'")
+
+        if lines.elem is None:
+            lines.elem = np.repeat( self.key, lines.nr )
+        else:
+            lines = lines.slice( lines.elem == self.key )
+        
+        for __s in self.children():
+            __s.setLines( lines )
 
     def U(self, T: Any) -> Any:
         """ Calculate the partition function for each attached species. """
