@@ -209,11 +209,6 @@ def main2():
 
     return   
 
-def main3():
-    from pylibs.misc import stockElements
-
-    print( stockElements[ 'cu' ] )
-
 
 if __name__ == '__main__':
-    main3()
+    main()
