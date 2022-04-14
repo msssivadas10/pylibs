@@ -64,6 +64,15 @@ class Node:
             raise NodeError("node do not have an attribute '{}'".format(__key))
         return setattr(self, __key, __value)
 
+    def copy(self):
+        copy = type( self )()
+        for key in self.keys():
+            setattr( copy, key, getattr( self, key ) )
+        
+        copy._childkey = [ key for key in self._childkey ]
+        copy._child    = [ ch.copy() for ch in self._child ]
+        return copy
+
     def keys(self) -> tuple:
         """ Return a tuple containing attribute names. """
         return tuple()
