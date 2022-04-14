@@ -202,5 +202,15 @@ def optimizePlasma(lnt: LinesTable, p: Plasma, flags: int = FIXED_DENSITY) -> No
 
     return applyVector( p, xopt.x )
 
+def findPeaks(*args, **kwargs) -> Any:
+    """
+    Find the peaks in a series.
+    """
+    raise NotImplementedError("function not implemented")
 
+def matchLines(*args, **kwargs) -> None:
+    """
+    Match a set of lines with another.
+    """
+    raise NotImplementedError("function not implemented")
 
