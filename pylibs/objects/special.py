@@ -372,13 +372,13 @@ class SpeciesNode(Node):
 
     def __init__(self, key: int, Vs: float, levels: LevelsTable, lines: LinesTable = None, interpolate: bool = True, T: Any = None) -> None:
         super().__init__()
-        self.setLevels(levels)
-        self.setLines(lines)
-
         self.key = key
 
         if not np.isscalar(Vs):
             raise TypeError("Vs must be a scalar")
+
+        self.setLevels(levels)
+        self.setLines(lines)
 
         self.Vs, self.Ns, self.Us = Vs, None, None
         self.T                    = None

@@ -9,21 +9,24 @@ def loadlines(file: str, select: list = None):
                 'C+': 18.0, 'C': 25.0, 'D+': 40.0, 'D': 50.0, 'E': 100.0,
              }
 
-    elem, sp, x, Aki, acc, Ei, Ek, gi, gk = loadtxt( 
-                                                        file, 
-                                                        regex = r'\s*'.join([
-                                                                                r'([A-Za-z]{2})', 
-                                                                                r'(\d+)', 
-                                                                                r'\"(\d*\.\d*)\"',
-                                                                                r'\"(\d*\.\d*[eE]?[+-]?\d*)\"',
-                                                                                r'([A-E]{1,3}[+]?)',
-                                                                                r'\"(\d*\.\d*)\"',
-                                                                                r'\"(\d*\.\d*)\"',
-                                                                                r'(\d*)',
-                                                                                r'(\d*)',         
-                                                                            ]),
-                                                        convert = 'sdffsffff' 
-                                                    )
+    data = loadtxt( 
+                        file, 
+                        regex = r'\s*'.join([
+                                                r'([A-Za-z]{2})', 
+                                                r'(\d+)', 
+                                                r'\"(\d*\.\d*)\"',
+                                                r'\"(\d*\.\d*[eE]?[+-]?\d*)\"',
+                                                r'([A-E]{1,3}[+]?)',
+                                                r'\"(\d*\.\d*)\"',
+                                                r'\"(\d*\.\d*)\"',
+                                                r'(\d*)',
+                                                r'(\d*)',         
+                                            ]),
+                        convert = 'sdffsffff' 
+                )
+
+    elem, sp, x, Aki, acc = data[:5]
+    Ek, gk                = data[6], data[8]
 
     acc  = np.array([ accMap[key] for key in acc ])
     sp   = sp - 1
@@ -49,8 +52,12 @@ def levels(x: str):
                                )
                       )
 
+def lines(x: str):
+    """ Lines """
+    return loadlines(f"../data/lines/{x}-lines.txt")
+
 def main():
-    lines = loadlines("percistent_lines.txt", ['cu', 'sn'] )
+    lnt = loadlines("percistent_lines.txt", ['cu', 'sn'] )
 
     t = {
             'cu': {
@@ -59,12 +66,12 @@ def main():
                                     {
                                         'Vs'    : 7.726380,
                                         'levels': levels('cu-1'),
-                                        'lines' : lines,
+                                        'lines' : lnt,
                                     },
                                     {
                                         'Vs'    : 20.29239,
                                         'levels': levels('cu-2'),
-                                        'lines' : lines,
+                                        'lines' : lnt,
                                     },
                             ]
                 },
@@ -74,12 +81,12 @@ def main():
                                     {
                                         'Vs'    : 7.343918,
                                         'levels': levels('sn-1'),
-                                        'lines' : lines,
+                                        'lines' : lnt,
                                     },
                                     {
                                         'Vs'    : 14.63307,
                                         'levels': levels('sn-2'),
-                                        'lines' : lines,
+                                        'lines' : lnt,
                                     }
                             ]
                 },
@@ -111,9 +118,102 @@ def main():
 
     print( b.Te, b.composition, a.Te, a.composition )
 
-    
+def main2():
+    from pylibs.objects import element
+    from pylibs.misc import createElementLibrary
+
+    x = [
+            {
+                'key'    : 'cu',
+                'm'      : 63.546,
+                'species': [
+                                {
+                                    'Vs'    : 7.726380,
+                                    'levels': levels('cu-1'),
+                                    'lines' : lines('cu'),
+                                },
+                                {
+                                    'Vs'    : 20.29239,
+                                    'levels': levels('cu-2'),
+                                    'lines' : lines('cu'),
+                                },
+                        ]
+            },
+            {
+                'key'    : 'sn',
+                'm'      : 118.710,
+                'species': [
+                                {
+                                    'Vs'    : 7.343918,
+                                    'levels': levels('sn-1'),
+                                    'lines' : lines('sn'),
+                                },
+                                {
+                                    'Vs'    : 14.63307,
+                                    'levels': levels('sn-2'),
+                                    'lines' : lines('sn'),
+                                },
+                        ]
+            },
+            {
+                'key'    : 'zn',
+                'm'      : 65.38,
+                'species': [
+                                {
+                                    'Vs'    : 9.394197,
+                                    'levels': levels('zn-1'),
+                                    'lines' : lines('zn'),
+                                },
+                                {
+                                    'Vs'    : 17.96439,
+                                    'levels': levels('zn-2'),
+                                    'lines' : lines('zn'),
+                                },
+                        ]
+            },
+            {
+                'key'    : 'fe',
+                'm'      : 55.845,
+                'species': [
+                                {
+                                    'Vs'    : 7.9024681,
+                                    'levels': levels('fe-1'),
+                                    'lines' : lines('fe'),
+                                },
+                                {
+                                    'Vs'    : 16.19921,
+                                    'levels': levels('fe-2'),
+                                    'lines' : lines('fe'),
+                                },
+                        ]
+            },
+            {
+                'key'    : 'al',
+                'm'      : 26.981,
+                'species': [
+                                {
+                                    'Vs'    : 5.985769,
+                                    'levels': levels('al-1'),
+                                    'lines' : lines('al'),
+                                },
+                                {
+                                    'Vs'    : 18.82855,
+                                    'levels': levels('al-2'),
+                                    'lines' : lines('al'),
+                                },
+                        ]
+            },
+        ]
+
+    createElementLibrary( 'stock_elem.dat', [ element(xi) for xi in x ] ) 
+
+    return   
+
+def main3():
+    from pylibs.misc import stockElements
+
+    print( stockElements[ 'cu' ] )
+
 
 if __name__ == '__main__':
-    main()
-
-# import pylibs.objects as o
+    main3()

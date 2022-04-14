@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Any, Iterable, Sequence, Union
+from typing import Any, Iterable, Tuple
 from pylibs.objects.tree import Node
 from pylibs.objects.special import LinesTable, LevelsTable, SpeciesNode, ElementNode
 
@@ -339,7 +339,7 @@ def elementTree_fromDict(__dict: dict, interpolate: bool = True, T: Any = None) 
     return elementTree_fromList( elem )
 
 # =========================================================================================
-# Functions for file reading
+# Functions for file reading / writing
 # =========================================================================================
 
 def loadtxt(file: str, delim: str = ',', comment: str = '#', regex: str = None, ignore: bool = True, convert: Any = False) -> Any:
@@ -432,5 +432,3 @@ def loadtxt(file: str, delim: str = ',', comment: str = '#', regex: str = None, 
     return data
 
 
-
-    
