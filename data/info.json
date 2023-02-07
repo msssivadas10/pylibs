@@ -1,0 +1,27 @@
+{
+    "Al": {
+            "Z": 13,
+            "Mass": 26.98154,
+            "IonizationEnergy": [5.985769, 18.82855]
+        },
+    "Fe": {
+            "Z": 26,
+            "Mass": 55.847,
+            "IonizationEnergy": [7.9024681, 16.19921]
+        },
+    "Cu": {
+            "Z": 29,
+            "Mass": 63.546,
+            "IonizationEnergy": [7.72638, 20.29239]
+        },    
+    "Zn": {
+            "Z": 30,
+            "Mass": 65.38,
+            "IonizationEnergy": [9.394197, 17.96439]
+        },
+    "Sn": {
+            "Z": 50,
+            "Mass": 118.69,
+            "IonizationEnergy": [7.343918,14.63307]
+        }
+}
